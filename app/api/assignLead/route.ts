@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function POST(req: NextRequest) {
@@ -18,7 +18,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get available agent
     const { data: agents, error: agentError } = await supabase
       .from("profiles")
       .select("id")
@@ -41,12 +40,11 @@ export async function POST(req: NextRequest) {
 
     const agentId = agents[0].id;
 
-    // Update lead
     const { data, error } = await supabase
       .from("leads")
       .update({
         agent_id: agentId,
-        status: "assigned"
+        status: "assigned",
       })
       .eq("id", lead_id)
       .select();
@@ -61,12 +59,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       assigned_agent: agentId,
-      lead: data
+      lead: data,
     });
-
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message || "Server error" },
+      {
+        error: err.message || "Server error",
+      },
       { status: 500 }
     );
   }
