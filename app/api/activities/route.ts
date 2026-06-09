@@ -1,32 +1,42 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export async function GET() {
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const leadId = searchParams.get("leadId");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return Response.json(
+        { success: false, error: "Missing Supabase environment variables" },
+        { status: 500 }
+      );
+    }
 
-  let query = supabase
-    .from("activities")
-    .select("*")
-    .order("created_at", { ascending: false });
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  if (leadId) {
-    query = query.eq("lead_id", leadId);
+    const { data, error } = await supabase
+      .from("activities")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return Response.json(
+        { success: false, error: error.message },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      data,
+    });
+  } catch (err: any) {
+    return Response.json(
+      {
+        success: false,
+        error: err?.message || "Unknown error",
+      },
+      { status: 500 }
+    );
   }
-
-  const { data, error } = await query;
-
-  if (error) {
-    return NextResponse.json({ success: false, error: error.message });
-  }
-
-  return NextResponse.json({
-    success: true,
-    activities: data || [],
-  });
 }
