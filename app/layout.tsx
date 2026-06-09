@@ -1,5 +1,9 @@
 import "./globals.css";
-import { Toaster } from "react-hot-toast";
+
+export const metadata = {
+  title: "Mirum Group CRM",
+  description: "Lead & property pipeline management for Mirum Group",
+};
 
 export default function RootLayout({
   children,
@@ -8,10 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>
-        {children}
-        <Toaster position="top-right" />
-      </body>
+      <body>{children}</body>
     </html>
   );
 }
