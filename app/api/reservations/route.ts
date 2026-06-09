@@ -20,10 +20,7 @@ export async function GET() {
     });
   } catch (err: any) {
     return Response.json(
-      {
-        success: false,
-        error: err.message || "Server error",
-      },
+      { success: false, error: err.message },
       { status: 500 }
     );
   }
