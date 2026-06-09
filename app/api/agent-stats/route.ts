@@ -1,45 +1,54 @@
-import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export async function GET() {
-  const { data: agents, error: agentsError } = await supabase
-    .from("agents")
-    .select("*");
+  try {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  const { data: leads, error: leadsError } = await supabase
-    .from("leads")
-    .select("*");
+    if (!supabaseUrl || !supabaseAnonKey) {
+      return Response.json(
+        { success: false, error: "Missing Supabase environment variables" },
+        { status: 500 }
+      );
+    }
 
-  if (agentsError || leadsError) {
-    return NextResponse.json({
-      success: false,
-      error: agentsError?.message || leadsError?.message,
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+    // Example safe query (adjust if your table differs)
+    const { data: agents, error: agentsError } = await supabase
+      .from("agents")
+      .select("*");
+
+    if (agentsError) {
+      return Response.json(
+        { success: false, error: agentsError.message },
+        { status: 500 }
+      );
+    }
+
+    const { data: leads, error: leadsError } = await supabase
+      .from("leads")
+      .select("id, status, agent_id");
+
+    if (leadsError) {
+      return Response.json(
+        { success: false, error: leadsError.message },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      agents,
+      leads,
     });
-  }
-
-  const stats = (agents || []).map((agent) => {
-    const agentLeads = (leads || []).filter(
-      (l) => l.agent_id === agent.id
+  } catch (err: any) {
+    return Response.json(
+      {
+        success: false,
+        error: err?.message || "Unknown error",
+      },
+      { status: 500 }
     );
-
-    return {
-      agent_id: agent.id,
-      name: agent.full_name,
-      total: agentLeads.length,
-      new: agentLeads.filter((l) => l.status === "new").length,
-      contacted: agentLeads.filter((l) => l.status === "contacted").length,
-      assigned: agentLeads.filter((l) => l.status === "assigned").length,
-      closed: agentLeads.filter((l) => l.status === "closed").length,
-    };
-  });
-
-  return NextResponse.json({
-    success: true,
-    stats,
-  });
+  }
 }
