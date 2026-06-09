@@ -36,7 +36,7 @@ type Activity = {
   created_at: string;
 };
 
-const COLUMNS = ["new", "contacted", "assigned", "closed"];
+const COLUMNS = ["enquiry", "qualified", "pack_sent", "contract", "settled"];
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -48,6 +48,7 @@ export default function LeadsPage() {
     loadData();
     loadActivities();
     setupRealtime();
+    setupActivityRealtime();
 
     return () => {
       if (channelRef.current) {
@@ -56,24 +57,31 @@ export default function LeadsPage() {
     };
   }, []);
 
+  /* ---------------- LOAD DATA ---------------- */
+
   async function loadData() {
     const [l, a] = await Promise.all([
       fetch("/api/leads"),
       fetch("/api/agents"),
     ]);
 
-    const leadsData = await l.json();
-    const agentsData = await a.json();
+    const leadsRes = await l.json();
+    const agentsRes = await a.json();
 
-    setLeads(leadsData.leads || []);
-    setAgents(agentsData.agents || []);
+    console.log("LEADS:", leadsRes);
+    console.log("AGENTS:", agentsRes);
+
+    setLeads(leadsRes.leads || []);
+    setAgents(agentsRes.agents || []);
   }
 
   async function loadActivities() {
     const res = await fetch("/api/activities");
     const data = await res.json();
-    setActivities(data.activities || []);
+    setActivities(data.data || data.activities || []);
   }
+
+  /* ---------------- REALTIME ---------------- */
 
   function setupRealtime() {
     if (channelRef.current) return;
@@ -82,7 +90,11 @@ export default function LeadsPage() {
       .channel("leads-realtime")
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "leads" },
+        {
+          event: "*",
+          schema: "public",
+          table: "leads",
+        },
         () => {
           loadData();
         }
@@ -92,58 +104,77 @@ export default function LeadsPage() {
     channelRef.current = channel;
   }
 
+  function setupActivityRealtime() {
+    supabase
+      .channel("activity-feed")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "activities",
+        },
+        () => {
+          loadActivities();
+        }
+      )
+      .subscribe();
+  }
+
+  /* ---------------- DRAG END ---------------- */
+
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
 
     const leadId = String(active.id);
-    const targetId = String(over.id);
+    const target = String(over.id);
 
-    if (COLUMNS.includes(targetId)) {
+    // STATUS CHANGE
+    if (COLUMNS.includes(target)) {
       await fetch("/api/updateLeadStatus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: leadId,
-          status: targetId,
+          status: target,
         }),
       });
 
+      toast.success(`Moved to ${target}`);
       return;
     }
 
+    // ASSIGN AGENT
     await fetch("/api/assignToAgent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         leadId,
-        agentId: targetId,
+        agentId: target,
       }),
     });
+
+    toast.success("Lead assigned");
   }
+
+  /* ---------------- FILTER ---------------- */
 
   function getByStatus(status: string) {
     return leads.filter((l) => l.status === status);
   }
 
+  /* ---------------- UI ---------------- */
+
   return (
-    <div className="flex min-h-screen bg-slate-50 text-black">
-      {/* MAIN */}
+    <div className="flex min-h-screen bg-white text-black">
       <div className="flex-1 p-6">
         <h1 className="text-2xl font-bold mb-6">
-          🏡 Mirum Group CRM
+          🏢 Mirum Group CRM
         </h1>
 
-        {/* AGENTS */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          {agents.map((a) => (
-            <AgentBox key={a.id} agent={a} />
-          ))}
-        </div>
-
-        {/* PIPELINE */}
-        <DndContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-4 gap-4">
+          <DndContext onDragEnd={handleDragEnd}>
             {COLUMNS.map((col) => (
               <Column
                 key={col}
@@ -151,24 +182,18 @@ export default function LeadsPage() {
                 leads={getByStatus(col)}
               />
             ))}
-          </div>
-        </DndContext>
+          </DndContext>
+        </div>
       </div>
 
-      {/* ACTIVITY */}
-      <div className="w-80 border-l p-4 bg-white">
-        <h2 className="font-bold mb-3">Activity Log</h2>
+      <div className="w-80 border-l p-4">
+        <h2 className="font-bold mb-3">Activity Feed</h2>
 
-        <div className="space-y-2">
-          {activities.map((a) => (
-            <div
-              key={a.id}
-              className="p-2 border rounded text-sm"
-            >
-              {a.message}
-            </div>
-          ))}
-        </div>
+        {activities.map((a) => (
+          <div key={a.id} className="p-2 border mb-2 text-sm">
+            {a.message}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -177,27 +202,29 @@ export default function LeadsPage() {
 /* ---------------- COLUMN ---------------- */
 
 function Column({ status, leads }: any) {
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({
+    id: status,
+  });
 
   return (
     <div
       ref={setNodeRef}
       className={`p-3 border rounded min-h-[500px] ${
-        isOver ? "bg-indigo-50" : "bg-white"
+        isOver ? "bg-blue-100" : "bg-gray-100"
       }`}
     >
       <h2 className="font-bold mb-3">
-        {status.toUpperCase()} ({leads.length})
+        {status} ({leads.length})
       </h2>
 
-      {leads.map((l: any) => (
-        <LeadCard key={l.id} lead={l} />
+      {leads.map((lead: any) => (
+        <LeadCard key={lead.id} lead={lead} />
       ))}
     </div>
   );
 }
 
-/* ---------------- LEAD CARD ---------------- */
+/* ---------------- CARD ---------------- */
 
 function LeadCard({ lead }: any) {
   const { setNodeRef, listeners, attributes } = useDraggable({
@@ -209,31 +236,11 @@ function LeadCard({ lead }: any) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className="bg-white border border-slate-200 shadow-sm p-3 mb-2 rounded-lg cursor-grab hover:shadow-md transition"
+      className="p-2 mb-2 border bg-white rounded cursor-grab"
     >
-      <div className="font-semibold">{lead.name}</div>
-      <div className="text-sm text-slate-500">{lead.email}</div>
-      <div className="text-sm text-slate-500">{lead.phone}</div>
-    </div>
-  );
-}
-
-/* ---------------- AGENT BOX ---------------- */
-
-function AgentBox({ agent }: any) {
-  const { setNodeRef, isOver } = useDroppable({ id: agent.id });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`p-3 border rounded text-center ${
-        isOver ? "bg-green-100" : "bg-white"
-      }`}
-    >
-      <div className="font-bold">{agent.full_name}</div>
-      <div className="text-xs text-gray-500">
-        Drop lead here
-      </div>
+      <div className="font-bold">{lead.name}</div>
+      <div className="text-sm">{lead.email}</div>
+      <div className="text-sm">{lead.phone}</div>
     </div>
   );
 }
