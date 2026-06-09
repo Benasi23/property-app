@@ -1,22 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-
-    const {
-      name,
-      email,
-      phone,
-      project_name,
-      lead_source,
-    } = body;
+    const { name, email, phone, project_name, lead_source } =
+      await req.json();
 
     if (!name || !email) {
       return NextResponse.json(

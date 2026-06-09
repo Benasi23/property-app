@@ -1,19 +1,7 @@
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseAnonKey) {
-      return Response.json(
-        { success: false, error: "Missing Supabase environment variables" },
-        { status: 500 }
-      );
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
     const { data, error } = await supabase
       .from("activities")
       .select("*")
@@ -21,7 +9,10 @@ export async function GET() {
 
     if (error) {
       return Response.json(
-        { success: false, error: error.message },
+        {
+          success: false,
+          error: error.message,
+        },
         { status: 500 }
       );
     }

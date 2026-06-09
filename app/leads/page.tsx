@@ -20,7 +20,7 @@ type Lead = {
   name: string;
   email: string;
   phone: string;
-  status: string;
+  stage: string;
   agent_id?: string | null;
 };
 
@@ -36,7 +36,14 @@ type Activity = {
   created_at: string;
 };
 
-const COLUMNS = ["new", "contacted", "assigned", "closed"];
+// ✅ SINGLE SOURCE OF TRUTH
+const COLUMNS = [
+  "enquiry",
+  "qualified",
+  "pack_sent",
+  "contract",
+  "settled",
+];
 
 export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
@@ -57,8 +64,6 @@ export default function LeadsPage() {
     };
   }, []);
 
-  /* ---------------- LOAD DATA ---------------- */
-
   async function loadData() {
     const [l, a] = await Promise.all([
       fetch("/api/leads"),
@@ -77,8 +82,6 @@ export default function LeadsPage() {
     const data = await res.json();
     setActivities(data.activities || []);
   }
-
-  /* ---------------- REALTIME LEADS ---------------- */
 
   function setupRealtime() {
     if (channelRef.current) return;
@@ -107,8 +110,6 @@ export default function LeadsPage() {
     channelRef.current = channel;
   }
 
-  /* ---------------- REALTIME ACTIVITIES ---------------- */
-
   function setupActivityRealtime() {
     supabase
       .channel("activity-feed")
@@ -126,89 +127,56 @@ export default function LeadsPage() {
       .subscribe();
   }
 
-  /* ---------------- REFRESH ---------------- */
-
   async function refreshLeads() {
     const res = await fetch("/api/leads");
     const data = await res.json();
     setLeads(data.leads || []);
   }
 
-  /* ---------------- ACTIVITY LOG ---------------- */
-
-  async function logActivity(message: string, type: string) {
-    await supabase.from("activities").insert([
-      {
-        message,
-        type,
-      },
-    ]);
-  }
-
-  /* ---------------- DRAG END ---------------- */
-
   async function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-
     if (!over) return;
 
     const leadId = String(active.id);
-    const targetId = String(over.id);
+    const targetStage = String(over.id);
 
-    // STATUS CHANGE
-    if (COLUMNS.includes(targetId)) {
+    if (COLUMNS.includes(targetStage)) {
       await fetch("/api/updateLeadStatus", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: leadId,
-          status: targetId,
+          stage: targetStage,
         }),
       });
 
-      await logActivity(`Lead moved to ${targetId}`, "status");
+      toast.success(`Moved to ${targetStage}`);
       return;
     }
 
-    // ASSIGN AGENT
     await fetch("/api/assignToAgent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         leadId,
-        agentId: targetId,
+        agentId: targetStage,
       }),
     });
 
-    await logActivity("Lead assigned to agent", "assign");
+    toast.success("Lead assigned");
   }
 
-  /* ---------------- HELPERS ---------------- */
-
-  function getByStatus(status: string) {
-    return leads.filter((l) => l.status === status);
+  function getByStatus(stage: string) {
+    return leads.filter((l) => l.stage === stage);
   }
-
-  /* ---------------- UI ---------------- */
 
   return (
     <div className="flex min-h-screen bg-white text-black">
-      {/* MAIN BOARD */}
       <div className="flex-1 p-6">
-        <h1 className="text-2xl font-bold mb-6">
-          🚀 CRM Pipeline
-        </h1>
+        <h1 className="text-2xl font-bold mb-6">CRM Pipeline</h1>
 
-        {/* AGENTS */}
-        <div className="grid grid-cols-4 gap-3 mb-6">
-          {agents.map((a) => (
-            <AgentBox key={a.id} agent={a} />
-          ))}
-        </div>
-
-        {/* PIPELINE */}
         <DndContext onDragEnd={handleDragEnd}>
-          <div className="grid grid-cols-4 gap-4">
+          <div className="grid grid-cols-5 gap-4">
             {COLUMNS.map((col) => (
               <Column
                 key={col}
@@ -220,22 +188,13 @@ export default function LeadsPage() {
         </DndContext>
       </div>
 
-      {/* ACTIVITY FEED */}
       <div className="w-80 border-l p-4">
-        <h2 className="font-bold mb-3">
-          📊 Activity Feed
-        </h2>
+        <h2 className="font-bold mb-3">Activity</h2>
 
         <div className="space-y-2">
           {activities.map((a) => (
-            <div
-              key={a.id}
-              className="p-2 border rounded bg-gray-50 text-sm"
-            >
-              <div>{a.message}</div>
-              <div className="text-xs text-gray-400">
-                {new Date(a.created_at).toLocaleTimeString()}
-              </div>
+            <div key={a.id} className="p-2 border rounded text-sm">
+              {a.message}
             </div>
           ))}
         </div>
@@ -243,8 +202,6 @@ export default function LeadsPage() {
     </div>
   );
 }
-
-/* ---------------- COLUMN ---------------- */
 
 function Column({ status, leads }: any) {
   const { setNodeRef, isOver } = useDroppable({
@@ -269,8 +226,6 @@ function Column({ status, leads }: any) {
   );
 }
 
-/* ---------------- LEAD CARD ---------------- */
-
 function LeadCard({ lead }: any) {
   const { setNodeRef, listeners, attributes } = useDraggable({
     id: lead.id,
@@ -284,34 +239,8 @@ function LeadCard({ lead }: any) {
       className="bg-white border p-2 mb-2 rounded cursor-grab"
     >
       <div className="font-bold">{lead.name}</div>
-      <div className="text-sm text-gray-600">
-        {lead.email}
-      </div>
-      <div className="text-sm text-gray-600">
-        {lead.phone}
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- AGENT BOX ---------------- */
-
-function AgentBox({ agent }: any) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: agent.id,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`p-3 border rounded text-center ${
-        isOver ? "bg-green-200" : "bg-white"
-      }`}
-    >
-      <div className="font-bold">{agent.full_name}</div>
-      <div className="text-xs text-gray-500">
-        Drop lead here
-      </div>
+      <div className="text-sm">{lead.email}</div>
+      <div className="text-sm">{lead.phone}</div>
     </div>
   );
 }

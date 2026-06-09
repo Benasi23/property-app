@@ -1,10 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
 
 export async function GET() {
   try {
@@ -23,7 +18,7 @@ export async function GET() {
     const safeLeads = leads || [];
 
     // ---------------------------
-    // STATS (SAFE CALCULATION)
+    // STATS
     // ---------------------------
 
     const enquiries = safeLeads.filter(
@@ -49,7 +44,7 @@ export async function GET() {
     const revenuePipeline = 0;
 
     // ---------------------------
-    // AGED PACKS (SAFE)
+    // AGED PACKS
     // ---------------------------
 
     const now = Date.now();
