@@ -3,15 +3,32 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-export async function GET(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
+    const body = await req.json();
+
+    const { name, email } = body;
+
+    if (!name || !email) {
+      return NextResponse.json(
+        { error: "Missing name or email" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
-      .eq("role", "agent"); // IMPORTANT: must be exactly "agent"
+      .insert([
+        {
+          name,
+          email,
+          role: "agent",
+        },
+      ])
+      .select();
 
     if (error) {
       return NextResponse.json(
@@ -21,11 +38,12 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
-      agents: data,
+      success: true,
+      agent: data,
     });
   } catch (err: any) {
     return NextResponse.json(
-      { error: err.message },
+      { error: err.message || "Server error" },
       { status: 500 }
     );
   }

@@ -3,81 +3,52 @@ import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const { name, email, phone, property_id } = body;
+    const {
+      name,
+      email,
+      phone,
+      project_name,
+      lead_source,
+    } = body;
 
-    if (!name || !email || !phone || !property_id) {
+    if (!name || !email) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    // 1. Create lead
-    const { data: lead, error: leadError } = await supabase
+    const { data, error } = await supabase
       .from("leads")
-      .insert({
-        name,
-        email,
-        phone,
-        property_id,
-        status: "new",
-      })
-      .select()
-      .single();
+      .insert([
+        {
+          name,
+          email,
+          phone,
+          project_name,
+          lead_source,
+          status: "enquiry",
+        },
+      ])
+      .select();
 
-    if (leadError) {
+    if (error) {
       return NextResponse.json(
-        { error: leadError.message },
-        { status: 500 }
-      );
-    }
-
-    // 2. Find agent
-    const { data: agents, error: agentError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("role", "agent")
-      .limit(1);
-
-    if (agentError || !agents || agents.length === 0) {
-      return NextResponse.json({
-        success: true,
-        lead,
-        warning: "Lead created but no agent available",
-      });
-    }
-
-    const agentId = agents[0].id;
-
-    // 3. Auto assign lead
-    const { data: updatedLead, error: updateError } = await supabase
-      .from("leads")
-      .update({
-        agent_id: agentId,
-        status: "assigned",
-      })
-      .eq("id", lead.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      return NextResponse.json(
-        { error: updateError.message },
+        { error: error.message },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      lead: updatedLead,
-      assigned_agent: agentId,
+      lead: data,
     });
   } catch (err: any) {
     return NextResponse.json(
