@@ -1,108 +1,73 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/lib/auth'
+import AppShell from '@/components/AppShell'
+import StockBoard, { Property } from '@/components/StockBoard'
 
-interface Lead {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-  agent_id: string;
-  created_at: string;
-}
+type Project = { id: string; name: string; suburb: string | null; state: string | null; description: string | null }
 
-export default function MyLeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function ProjectDetailPage() {
+  const router = useRouter()
+  const params = useParams<{ id: string }>()
+  const projectId = params?.id
+  const { user, orgId, loading: authLoading } = useAuth()
+  const [project, setProject] = useState<Project | null>(null)
+  const [properties, setProperties] = useState<Property[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    if (!projectId) return
+    const [{ data: proj }, { data: props }] = await Promise.all([
+      supabase.from('projects').select('*').eq('id', projectId).single(),
+      supabase
+        .from('properties')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('lot_number', { ascending: true }),
+    ])
+    setProject(proj)
+    setProperties(props ?? [])
+    setLoading(false)
+  }, [projectId])
 
   useEffect(() => {
-    async function loadLeads() {
-      try {
-        // STEP 1: Get current agent (TEMP LOGIC for now)
-        const agentRes = await fetch("/api/agents");
-        const agentData = await agentRes.json();
-
-        const currentAgent = agentData.agents?.[0];
-
-        if (!currentAgent) {
-          setLoading(false);
-          return;
-        }
-
-        // STEP 2: Get all leads
-        const leadsRes = await fetch("/api/leads");
-        const leadsData = await leadsRes.json();
-
-        // STEP 3: Filter only leads for this agent
-        const myLeads =
-          leadsData.leads?.filter(
-            (lead: Lead) => lead.agent_id === currentAgent.id
-          ) || [];
-
-        setLeads(myLeads);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
+    if (authLoading) return
+    if (!user) {
+      router.replace('/login')
+      return
     }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    load()
+  }, [authLoading, user, router, load])
 
-    loadLeads();
-  }, []);
+  const location = project ? [project.suburb, project.state].filter(Boolean).join(', ') : ''
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">My Leads</h1>
-
-      {loading ? (
-        <p className="text-gray-500">Loading...</p>
-      ) : leads.length === 0 ? (
-        <p className="text-gray-500">No leads assigned to you</p>
+    <AppShell
+      title={project?.name ?? 'Project'}
+      subtitle={location || 'Development packages'}
+      actions={
+        <Link href="/projects" className="text-sm text-slate-500 hover:text-black">
+          ← All projects
+        </Link>
+      }
+    >
+      {authLoading || loading ? (
+        <div className="p-10 text-slate-400">Loading…</div>
+      ) : properties.length === 0 ? (
+        <p className="text-slate-500">No packages in this project yet.</p>
       ) : (
-        <div className="overflow-x-auto bg-white shadow rounded">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="bg-gray-100">
-                <th className="border p-3 text-left">Name</th>
-                <th className="border p-3 text-left">Email</th>
-                <th className="border p-3 text-left">Phone</th>
-                <th className="border p-3 text-left">Status</th>
-                <th className="border p-3 text-left">Created</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {leads.map((lead) => (
-                <tr key={lead.id} className="hover:bg-gray-50">
-                  <td className="border p-3">
-                    <Link
-                      href={`/leads/${lead.id}`}
-                      className="text-blue-600 underline"
-                    >
-                      {lead.name}
-                    </Link>
-                  </td>
-
-                  <td className="border p-3">{lead.email}</td>
-                  <td className="border p-3">{lead.phone}</td>
-
-                  <td className="border p-3">
-                    <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm">
-                      {lead.status}
-                    </span>
-                  </td>
-
-                  <td className="border p-3">
-                    {new Date(lead.created_at).toLocaleString()}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <StockBoard
+          properties={properties}
+          setProperties={setProperties}
+          orgId={orgId}
+          reload={load}
+        />
       )}
-    </div>
-  );
+    </AppShell>
+  )
 }

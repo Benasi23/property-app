@@ -1,16 +1,24 @@
 export default function Home() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50">
-      <div className="text-center space-y-4">
+      <div className="space-y-4 text-center">
         <h1 className="text-4xl font-bold">Mirum Group</h1>
-        <p className="text-gray-600">CRM Dashboard is running</p>
+        <p className="text-gray-600">Selling Platform</p>
 
-        <a
-          href="/leads"
-          className="inline-block px-6 py-3 bg-black text-white rounded-lg"
-        >
-          Open Dashboard
-        </a>
+        <div className="flex justify-center gap-3">
+          <a
+            href="/login"
+            className="inline-block rounded-lg bg-black px-6 py-3 text-white"
+          >
+            Sign in
+          </a>
+          <a
+            href="/properties"
+            className="inline-block rounded-lg border border-black px-6 py-3"
+          >
+            Browse stock
+          </a>
+        </div>
       </div>
     </div>
   );
