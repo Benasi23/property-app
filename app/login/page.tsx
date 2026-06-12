@@ -1,38 +1,30 @@
-"use client";
-
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-
-export default function LoginPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const handleLogin = () => {
-    console.log("Login attempt:", email, password);
-    router.push("/");
-  };
-
+export default function AdminPage() {
   return (
-    <div style={{ padding: 20 }}>
-      <h1>Login</h1>
+    <div className="space-y-6">
 
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={{ display: "block", marginBottom: 10 }}
-      />
+      <h1 className="text-2xl font-bold">
+        Dashboard
+      </h1>
 
-      <input
-        placeholder="Password"
-        type="password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={{ display: "block", marginBottom: 10 }}
-      />
+      <div className="grid grid-cols-3 gap-4">
 
-      <button onClick={handleLogin}>Login</button>
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-semibold">Total Leads</h2>
+          <p className="text-gray-500">Coming soon</p>
+        </div>
+
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-semibold">Active Deals</h2>
+          <p className="text-gray-500">Coming soon</p>
+        </div>
+
+        <div className="bg-white p-4 rounded shadow">
+          <h2 className="font-semibold">Revenue</h2>
+          <p className="text-gray-500">Coming soon</p>
+        </div>
+
+      </div>
+
     </div>
-  );
+  )
 }

@@ -1,124 +1,88 @@
-"use client";
+'use client'
 
-import { useEffect, useState } from "react";
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
-type Lead = {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  status: string;
-  property_id: number;
-  agent_id?: string;
-};
-
-type Agent = {
-  id: string;
-  full_name?: string;
-  email?: string;
-};
-
-export default function AdminPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [agents, setAgents] = useState<Agent[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  const fetchData = async () => {
-    const [leadsRes, agentsRes] = await Promise.all([
-      fetch("/api/leads"),
-      fetch("/api/admin/agents"),
-    ]);
-
-    const leadsData = await leadsRes.json();
-    const agentsData = await agentsRes.json();
-
-    setLeads(leadsData.leads || []);
-    setAgents(agentsData.agents || []);
-    setLoading(false);
-  };
+export default function Dashboard() {
+  const [stats, setStats] = useState<any>(null)
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchStats()
+  }, [])
 
-  const assignAgent = async (leadId: string, agentId: string) => {
-    await fetch("/api/admin/assign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lead_id: leadId, agent_id: agentId }),
-    });
+  const fetchStats = async () => {
+    // total leads
+    const { count: total } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
 
-    fetchData();
-  };
+    // new leads
+    const { count: newLeads } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('stage', 'New')
 
-  const stats = {
-    total: leads.length,
-    new: leads.filter(l => l.status === "new").length,
-    contacted: leads.filter(l => l.status === "contacted").length,
-    sold: leads.filter(l => l.status === "sold").length,
-  };
+    // won leads
+    const { count: won } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .eq('stage', 'Won')
 
-  if (loading) return <p style={{ padding: 20 }}>Loading...</p>;
+    // active leads
+    const { count: active } = await supabase
+      .from('leads')
+      .select('*', { count: 'exact', head: true })
+      .not('stage', 'in', '(Won,Lost)')
+
+    const conversion = total ? ((won || 0) / total) * 100 : 0
+
+    setStats({
+      total,
+      newLeads,
+      won,
+      active,
+      conversion: conversion.toFixed(1)
+    })
+  }
+
+  if (!stats) return <p className="p-6">Loading...</p>
 
   return (
-    <main style={{ padding: 20 }}>
-      <h1>Admin Control Panel</h1>
+    <div className="p-6 space-y-6">
 
-      {/* STATS */}
-      <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-        <div>Total: {stats.total}</div>
-        <div>New: {stats.new}</div>
-        <div>Contacted: {stats.contacted}</div>
-        <div>Sold: {stats.sold}</div>
+      <h1 className="text-2xl font-bold">Dashboard</h1>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+        <div className="bg-white p-4 shadow rounded">
+          <p className="text-gray-500">Total Leads</p>
+          <p className="text-2xl font-bold">{stats.total}</p>
+        </div>
+
+        <div className="bg-white p-4 shadow rounded">
+          <p className="text-gray-500">New Leads</p>
+          <p className="text-2xl font-bold">{stats.newLeads}</p>
+        </div>
+
+        <div className="bg-white p-4 shadow rounded">
+          <p className="text-gray-500">Active Leads</p>
+          <p className="text-2xl font-bold">{stats.active}</p>
+        </div>
+
+        <div className="bg-white p-4 shadow rounded">
+          <p className="text-gray-500">Won Deals</p>
+          <p className="text-2xl font-bold">{stats.won}</p>
+        </div>
+
       </div>
 
-      {/* LEADS TABLE */}
-      <h2>All Leads</h2>
+      <div className="bg-white p-4 shadow rounded">
+        <p className="text-gray-500">Conversion Rate</p>
+        <p className="text-3xl font-bold text-green-600">
+          {stats.conversion}%
+        </p>
+      </div>
 
-      <table border={1} cellPadding={8} style={{ width: "100%" }}>
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Phone</th>
-            <th>Status</th>
-            <th>Agent</th>
-            <th>Assign</th>
-          </tr>
-        </thead>
-
-        <tbody>
-          {leads.map((lead) => (
-            <tr key={lead.id}>
-              <td>{lead.name}</td>
-              <td>{lead.email}</td>
-              <td>{lead.phone}</td>
-              <td>{lead.status}</td>
-
-              <td>{lead.agent_id || "Unassigned"}</td>
-
-              <td>
-                <select
-                  onChange={(e) =>
-                    assignAgent(lead.id, e.target.value)
-                  }
-                  defaultValue=""
-                >
-                  <option value="" disabled>
-                    Select agent
-                  </option>
-
-                  {agents.map((agent) => (
-                    <option key={agent.id} value={agent.id}>
-                      {agent.email || agent.id}
-                    </option>
-                  ))}
-                </select>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </main>
-  );
+    </div>
+  )
 }

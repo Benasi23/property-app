@@ -5,8 +5,7 @@ export async function GET() {
   try {
     const { data: leads, error } = await supabase
       .from("leads")
-      .select("*")
-      .order("created_at", { ascending: false });
+      .select("*");
 
     if (error) {
       return NextResponse.json({
@@ -15,87 +14,48 @@ export async function GET() {
       });
     }
 
-    const safeLeads = leads || [];
+    const safe = leads || [];
 
-    // ---------------------------
-    // STATS
-    // ---------------------------
+    const totalLeads = safe.length;
 
-    const enquiries = safeLeads.filter(
-      (l) => l.stage === "enquiry"
-    ).length;
+    const enquiry = safe.filter((l) => l.status === "enquiry").length;
+    const qualified = safe.filter((l) => l.status === "qualified").length;
+    const packSent = safe.filter((l) => l.status === "pack_sent").length;
+    const contract = safe.filter((l) => l.status === "contract").length;
+    const settled = safe.filter((l) => l.status === "settled").length;
 
-    const reservations = safeLeads.filter(
-      (l) => l.stage === "qualified"
-    ).length;
+    const conversionRate =
+      totalLeads > 0 ? (settled / totalLeads) * 100 : 0;
 
-    const packsOutLeads = safeLeads.filter(
-      (l) => l.stage === "pack_sent"
-    );
+    const pipelineValue = qualified * 250000;
+    const projectedRevenue = settled * 250000;
 
-    const contracts = safeLeads.filter(
-      (l) => l.stage === "contract"
-    ).length;
-
-    const settlements = safeLeads.filter(
-      (l) => l.stage === "settled"
-    ).length;
-
-    const revenuePipeline = 0;
-
-    // ---------------------------
-    // AGED PACKS
-    // ---------------------------
-
-    const now = Date.now();
-
-    const agedPacks = packsOutLeads.map((lead) => {
-      const sentDate = lead.pack_sent_date
-        ? new Date(lead.pack_sent_date)
-        : null;
-
-      const daysHeld = sentDate
-        ? Math.floor(
-            (now - sentDate.getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        : null;
-
-      let risk = "green";
-
-      if (daysHeld === null) risk = "gray";
-      else if (daysHeld > 21) risk = "red";
-      else if (daysHeld > 14) risk = "orange";
-      else if (daysHeld > 7) risk = "yellow";
-
-      return {
-        ...lead,
-        daysHeld,
-        risk,
-      };
-    });
-
-    // ---------------------------
-    // RESPONSE
-    // ---------------------------
+    const last7Days = safe.filter((l) => {
+      const date = new Date(l.created_at).getTime();
+      const now = Date.now();
+      return now - date < 7 * 24 * 60 * 60 * 1000;
+    }).length;
 
     return NextResponse.json({
       success: true,
-      stats: {
-        enquiries,
-        reservations,
-        packsOut: packsOutLeads.length,
-        contracts,
-        settlements,
-        revenuePipeline,
+      metrics: {
+        totalLeads,
+        enquiry,
+        qualified,
+        packSent,
+        contract,
+        settled,
+        conversionRate: Number(conversionRate.toFixed(2)),
+        pipelineValue,
+        projectedRevenue,
+        last7Days,
       },
-      agedPacks,
     });
   } catch (err: any) {
     return NextResponse.json(
       {
         success: false,
-        error: err?.message || "Dashboard crashed",
+        error: err?.message || "Dashboard error",
       },
       { status: 500 }
     );
