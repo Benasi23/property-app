@@ -42,6 +42,7 @@ type Section = { key: string; label: string; types: string[]; groupUpload?: { do
 const SECTIONS: Section[] = [
   { key: 'template', label: 'Property Template', types: ['template'] },
   { key: 'marketing', label: 'Marketing Material', types: ['marketing', 'brochure'] },
+  { key: 'rental_letter', label: 'Rental Letter', types: ['rental_letter'] },
   { key: 'eoi', label: 'Expression of Interest', types: ['eoi'], groupUpload: { docType: 'eoi', cta: 'Upload your EOI' } },
   { key: 'deposit', label: 'Deposit Information', types: ['deposit'] },
   { key: 'contract', label: 'Contracts', types: ['contract', 'signed_contract'], groupUpload: { docType: 'signed_contract', cta: 'Upload signed contract' } },
@@ -336,6 +337,7 @@ export default function PropertyDetailPage() {
                     <option value="template">Property template</option>
                     <option value="marketing">Marketing</option>
                     <option value="brochure">Brochure</option>
+                    <option value="rental_letter">Rental Letter</option>
                     <option value="eoi">Expression of Interest (blank/template)</option>
                     <option value="deposit">Deposit information</option>
                     <option value="contract">Contract (blank)</option>
