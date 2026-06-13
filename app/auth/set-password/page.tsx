@@ -44,7 +44,7 @@ export default function SetPasswordPage() {
       <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mirum-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-32 rounded-lg" />
+          <img src="/moneta-group-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-32 rounded-lg" />
           <h1 className="text-lg font-bold">Set your password</h1>
           <p className="text-sm text-gray-500">Create a password to activate your account.</p>
         </div>

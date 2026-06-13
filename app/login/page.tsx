@@ -32,7 +32,7 @@ export default function LoginPage() {
       >
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mirum-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-32 rounded-lg" />
+          <img src="/moneta-group-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-32 rounded-lg" />
           <p className="text-sm text-gray-500">Selling Platform — sign in</p>
         </div>
 
