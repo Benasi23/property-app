@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
@@ -194,6 +195,14 @@ export default function ReservationsPage() {
                           </select>
                         ) : (
                           r.organisation_id ? orgName[r.organisation_id] ?? '—' : '—'
+                        )}
+                        {r.organisation_id && (
+                          <Link
+                            href={`/admin/agents/${r.organisation_id}/properties`}
+                            className="mt-1 block text-[11px] text-slate-400 hover:text-black"
+                          >
+                            View their stock →
+                          </Link>
                         )}
                       </td>
                       <td className="px-5 py-3 capitalize">{r.res_type}</td>

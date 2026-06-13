@@ -138,7 +138,14 @@ export default function GroupDetailPage() {
     <AppShell
       title={org?.name ?? 'Selling Group'}
       subtitle="Group dashboard, details & agreement"
-      actions={<Link href="/admin/agents" className="text-sm text-slate-500 hover:text-black">← All groups</Link>}
+      actions={
+        <div className="flex items-center gap-4">
+          <Link href={`/admin/agents/${orgId}/properties`} className="rounded bg-black px-3 py-1.5 text-sm font-medium text-white">
+            View stock as cards
+          </Link>
+          <Link href="/admin/agents" className="text-sm text-slate-500 hover:text-black">← All groups</Link>
+        </div>
+      }
     >
       {authLoading || loading ? (
         <div className="p-10 text-slate-400">Loading…</div>
