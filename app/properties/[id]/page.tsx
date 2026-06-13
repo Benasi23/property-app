@@ -34,15 +34,17 @@ type Doc = {
   storage_path: string | null
   property_id: string | null
   project_id: string | null
+  organisation_id: string | null
 }
 
-// Display sections. Each maps to one or more doc_type values.
-const SECTIONS: { key: string; label: string; types: string[] }[] = [
-  { key: 'contract', label: 'Contracts', types: ['contract'] },
-  { key: 'marketing', label: 'Marketing Material', types: ['marketing', 'brochure'] },
-  { key: 'deposit', label: 'Deposit Info', types: ['deposit'] },
-  { key: 'eoi', label: 'Expression of Interest', types: ['eoi'] },
+// Display sections, top → bottom. groupUpload sections let selling groups upload.
+type Section = { key: string; label: string; types: string[]; groupUpload?: { docType: string; cta: string } }
+const SECTIONS: Section[] = [
   { key: 'template', label: 'Property Template', types: ['template'] },
+  { key: 'marketing', label: 'Marketing Material', types: ['marketing', 'brochure'] },
+  { key: 'eoi', label: 'Expression of Interest', types: ['eoi'], groupUpload: { docType: 'eoi', cta: 'Upload your EOI' } },
+  { key: 'deposit', label: 'Deposit Information', types: ['deposit'] },
+  { key: 'contract', label: 'Contracts', types: ['contract', 'signed_contract'], groupUpload: { docType: 'signed_contract', cta: 'Upload signed contract' } },
 ]
 
 const STATUS_STYLE: Record<string, string> = {
@@ -97,7 +99,7 @@ export default function PropertyDetailPage() {
 
     const { data: d } = await supabase
       .from('documents')
-      .select('id, title, doc_type, storage_path, property_id, project_id')
+      .select('id, title, doc_type, storage_path, property_id, project_id, organisation_id')
       .or(orParts.join(','))
       .order('created_at', { ascending: false })
 
@@ -121,6 +123,8 @@ export default function PropertyDetailPage() {
     for (const d of docs) (m[d.doc_type] ??= []).push(d)
     return m
   }, [docs])
+
+  const orgNameMap = useMemo(() => Object.fromEntries(orgs.map((o) => [o.id, o.name])), [orgs])
 
   const claim = async (resType: 'hold' | 'reservation') => {
     if (!propertyId) return
@@ -274,31 +278,45 @@ export default function PropertyDetailPage() {
                     <p className="text-sm text-slate-400">Nothing here yet.</p>
                   ) : (
                     <ul className="space-y-2">
-                      {items.map((d) => (
-                        <li key={d.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                          <span className="text-sm">
-                            {d.title}
-                            {d.property_id === null && (
-                              <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">
-                                {d.project_id ? 'project' : 'general'}
-                              </span>
+                      {items.map((d) => {
+                        const submitted = d.organisation_id
+                          ? isHq
+                            ? `from ${orgNameMap[d.organisation_id] ?? 'a group'}`
+                            : 'your upload'
+                          : d.property_id === null
+                            ? d.project_id ? 'project' : 'general'
+                            : null
+                        const isSigned = d.doc_type === 'signed_contract'
+                        return (
+                          <li key={d.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
+                            <span className="text-sm">
+                              {isSigned ? '✍️ ' : ''}{d.title}
+                              {submitted && (
+                                <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">{submitted}</span>
+                              )}
+                            </span>
+                            {d.storage_path && d.storage_path.startsWith('http') ? (
+                              <a href={d.storage_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                                Open
+                              </a>
+                            ) : (
+                              <span className="text-xs text-slate-300">No file</span>
                             )}
-                          </span>
-                          {d.storage_path && d.storage_path.startsWith('http') ? (
-                            <a
-                              href={d.storage_path}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                            >
-                              Open
-                            </a>
-                          ) : (
-                            <span className="text-xs text-slate-300">No file</span>
-                          )}
-                        </li>
-                      ))}
+                          </li>
+                        )
+                      })}
                     </ul>
+                  )}
+
+                  {/* Group upload — only in EOI & Contracts, only for selling groups */}
+                  {sec.groupUpload && !isHq && orgId && propertyId && (
+                    <GroupUploadForm
+                      propertyId={propertyId}
+                      orgId={orgId}
+                      docType={sec.groupUpload.docType}
+                      cta={sec.groupUpload.cta}
+                      onDone={load}
+                    />
                   )}
                 </div>
               )
@@ -315,11 +333,12 @@ export default function PropertyDetailPage() {
                     className="rounded border px-3 py-2 text-sm sm:col-span-2"
                   />
                   <select value={section} onChange={(e) => setSection(e.target.value)} className="rounded border px-3 py-2 text-sm">
-                    <option value="contract">Contract</option>
-                    <option value="marketing">Marketing</option>
-                    <option value="deposit">Deposit info</option>
-                    <option value="eoi">Expression of Interest</option>
                     <option value="template">Property template</option>
+                    <option value="marketing">Marketing</option>
+                    <option value="brochure">Brochure</option>
+                    <option value="eoi">Expression of Interest (blank/template)</option>
+                    <option value="deposit">Deposit information</option>
+                    <option value="contract">Contract (blank)</option>
                   </select>
                   <button type="submit" disabled={saving} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                     {saving ? 'Adding…' : 'Add'}
@@ -343,6 +362,57 @@ export default function PropertyDetailPage() {
         </div>
       )}
     </AppShell>
+  )
+}
+
+function GroupUploadForm({
+  propertyId,
+  orgId,
+  docType,
+  cta,
+  onDone,
+}: {
+  propertyId: string
+  orgId: string
+  docType: string
+  cta: string
+  onDone: () => void
+}) {
+  const [f, setF] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!f) return
+    setBusy(true)
+    const { url, error } = await uploadToDocuments(f, `${propertyId}/${orgId}`)
+    if (error) { setBusy(false); return toast.error(error.message) }
+    const { error: insErr } = await supabase.from('documents').insert({
+      title: f.name,
+      doc_type: docType,
+      storage_path: url,
+      property_id: propertyId,
+      organisation_id: orgId,
+      is_public_to_groups: false,
+    })
+    setBusy(false)
+    if (insErr) return toast.error(insErr.message)
+    toast.success('Uploaded')
+    setF(null)
+    onDone()
+  }
+
+  return (
+    <form onSubmit={submit} className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
+      <input
+        type="file"
+        onChange={(e) => setF(e.target.files?.[0] ?? null)}
+        className="flex-1 rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
+      />
+      <button type="submit" disabled={busy || !f} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        {busy ? 'Uploading…' : cta}
+      </button>
+    </form>
   )
 }
 
