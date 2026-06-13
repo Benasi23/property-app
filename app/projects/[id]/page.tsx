@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import StockBoard, { Property } from '@/components/StockBoard'
 
-type Project = { id: string; name: string; suburb: string | null; state: string | null; description: string | null }
+type Project = { id: string; name: string; suburb: string | null; state: string | null; description: string | null; is_hidden: boolean }
 type ProjectDoc = { id: string; title: string; doc_type: string; storage_path: string | null }
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -162,6 +162,14 @@ export default function ProjectDetailPage() {
     load()
   }
 
+  const toggleHidden = async () => {
+    if (!project) return
+    const { error } = await supabase.from('projects').update({ is_hidden: !project.is_hidden }).eq('id', project.id)
+    if (error) return toast.error(error.message)
+    toast.success(project.is_hidden ? 'Project now visible to groups' : 'Project hidden from groups')
+    load()
+  }
+
   const location = project ? [project.suburb, project.state].filter(Boolean).join(', ') : ''
 
   return (
@@ -170,6 +178,14 @@ export default function ProjectDetailPage() {
       subtitle={location || 'Development packages'}
       actions={
         <div className="flex items-center gap-4">
+          {isHq && !authLoading && !loading && project && (
+            <button
+              onClick={toggleHidden}
+              className={`rounded px-3 py-1.5 text-sm font-medium ${project.is_hidden ? 'bg-amber-100 text-amber-700' : 'border border-slate-200 text-slate-600'}`}
+            >
+              {project.is_hidden ? 'Hidden — show to groups' : 'Visible to groups'}
+            </button>
+          )}
           {isHq && !authLoading && !loading && (
             <button onClick={() => setShowAdd((s) => !s)} className="rounded bg-black px-3 py-1.5 text-sm font-medium text-white">
               {showAdd ? 'Close' : '+ Add property'}

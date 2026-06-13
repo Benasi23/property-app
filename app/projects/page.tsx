@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 
-type Project = { id: string; name: string; suburb: string | null; state: string | null }
+type Project = { id: string; name: string; suburb: string | null; state: string | null; is_hidden?: boolean }
 type Counts = { total: number; available: number; sold: number }
 
 export default function ProjectsPage() {
@@ -123,7 +123,12 @@ export default function ProjectsPage() {
                 href={`/projects/${proj.id}`}
                 className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
               >
-                <h2 className="text-base font-semibold group-hover:text-black">{proj.name}</h2>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold group-hover:text-black">{proj.name}</h2>
+                  {proj.is_hidden && (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Hidden</span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500">
                   {[proj.suburb, proj.state].filter(Boolean).join(', ') || '—'}
                 </p>
