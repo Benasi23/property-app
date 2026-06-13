@@ -83,6 +83,10 @@ export default function PropertyDetailPage() {
   const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([])
   const [selectedOrg, setSelectedOrg] = useState('')
 
+  // HQ: delete property
+  const [confirmDel, setConfirmDel] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const load = useCallback(async () => {
     if (!propertyId) return
     const { data: p } = await supabase.from('properties').select('*').eq('id', propertyId).single()
@@ -165,6 +169,16 @@ export default function PropertyDetailPage() {
     else if (data === 'pending') toast.success('Reservation request sent to Mirum HQ for approval')
     else toast.success('Lot reserved')
     load()
+  }
+
+  const deleteProperty = async () => {
+    if (!propertyId) return
+    setDeleting(true)
+    const { error } = await supabase.from('properties').delete().eq('id', propertyId)
+    setDeleting(false)
+    if (error) return toast.error(error.message)
+    toast.success('Property deleted')
+    router.push(prop?.project_id ? `/projects/${prop.project_id}` : '/properties')
   }
 
   const addDoc = async (e: React.FormEvent) => {
@@ -289,12 +303,40 @@ export default function PropertyDetailPage() {
                   </button>
                   </div>
                 </div>
+              ) : isHq && prop.held_by_org ? (
+                <p className="mt-4 text-sm font-medium text-slate-600">
+                  {prop.status === 'reserved' ? 'Reserved by' : 'Held by'}: {orgNameMap[prop.held_by_org] ?? 'a group'}
+                </p>
               ) : heldByYou ? (
                 <p className="mt-4 text-sm font-medium text-amber-600">Held by your group</p>
               ) : (
                 <p className="mt-4 text-sm text-slate-400">Currently unavailable</p>
               )}
             </div>
+
+            {isHq && (
+              <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
+                {!confirmDel ? (
+                  <button onClick={() => setConfirmDel(true)} className="text-sm font-medium text-red-600 hover:underline">
+                    Delete this property
+                  </button>
+                ) : (
+                  <div>
+                    <p className="text-sm text-red-700">
+                      Permanently delete <b>Lot {prop.lot_number ?? '—'}</b> and all its documents, holds and reservations? This can&apos;t be undone.
+                    </p>
+                    <div className="mt-3 flex gap-2">
+                      <button onClick={deleteProperty} disabled={deleting} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                        {deleting ? 'Deleting…' : 'Yes, delete'}
+                      </button>
+                      <button onClick={() => setConfirmDel(false)} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* RIGHT: resource sections */}

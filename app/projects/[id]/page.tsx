@@ -68,6 +68,10 @@ export default function ProjectDetailPage() {
   const [docFile, setDocFile] = useState<File | null>(null)
   const [savingDoc, setSavingDoc] = useState(false)
 
+  // delete project
+  const [confirmDelProj, setConfirmDelProj] = useState(false)
+  const [deletingProj, setDeletingProj] = useState(false)
+
   const load = useCallback(async () => {
     if (!projectId) return
     const [{ data: proj }, { data: props }, { data: pdocs }] = await Promise.all([
@@ -161,6 +165,17 @@ export default function ProjectDetailPage() {
     setDocFile(null)
     setDocType('marketing')
     load()
+  }
+
+  const deleteProject = async () => {
+    if (!projectId) return
+    setDeletingProj(true)
+    await supabase.from('properties').delete().eq('project_id', projectId)
+    const { error } = await supabase.from('projects').delete().eq('id', projectId)
+    setDeletingProj(false)
+    if (error) return toast.error(error.message)
+    toast.success('Project deleted')
+    router.push('/projects')
   }
 
   const location = project ? [project.suburb, project.state].filter(Boolean).join(', ') : ''
@@ -304,6 +319,31 @@ export default function ProjectDetailPage() {
               </form>
             )}
           </div>
+
+          {isHq && (
+            <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
+              {!confirmDelProj ? (
+                <button onClick={() => setConfirmDelProj(true)} className="text-sm font-medium text-red-600 hover:underline">
+                  Delete this project
+                </button>
+              ) : (
+                <div>
+                  <p className="text-sm text-red-700">
+                    Permanently delete <b>{project?.name}</b> and <b>all {properties.length} of its properties</b>
+                    (with their documents, holds and reservations)? This can&apos;t be undone.
+                  </p>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={deleteProject} disabled={deletingProj} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                      {deletingProj ? 'Deleting…' : 'Yes, delete project & all lots'}
+                    </button>
+                    <button onClick={() => setConfirmDelProj(false)} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </AppShell>
