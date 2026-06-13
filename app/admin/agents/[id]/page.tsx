@@ -26,7 +26,7 @@ type Agreement = { id: string; title: string; storage_path: string | null; creat
 type HeldProp = { id: string; lot_number: string | null; estate: string | null; status: string; price: number | null }
 type Res = {
   id: string; res_type: string; status: string; created_at: string
-  properties: { lot_number: string | null; estate: string | null } | null
+  properties: { id: string; lot_number: string | null; estate: string | null } | null
 }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString()}`
@@ -60,7 +60,7 @@ export default function GroupDetailPage() {
       supabase.from('profiles').select('id, email, full_name, role').eq('organisation_id', orgId),
       supabase.from('documents').select('id, title, storage_path, created_at').eq('organisation_id', orgId).eq('doc_type', 'agreement').order('created_at', { ascending: false }),
       supabase.from('properties').select('id, lot_number, estate, status, price').eq('held_by_org', orgId),
-      supabase.from('reservations').select('id, res_type, status, created_at, properties(lot_number, estate)').eq('organisation_id', orgId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('reservations').select('id, res_type, status, created_at, properties(id, lot_number, estate)').eq('organisation_id', orgId).order('created_at', { ascending: false }).limit(20),
     ])
     setOrg(o)
     setMembers(m ?? [])
@@ -201,8 +201,20 @@ export default function GroupDetailPage() {
                     <tbody>
                       {reservations.map((r) => (
                         <tr key={r.id} className="border-t border-slate-50">
-                          <td className="px-5 py-2.5">{r.properties?.estate ?? '—'}</td>
-                          <td className="px-5 py-2.5">Lot {r.properties?.lot_number ?? '—'}</td>
+                          <td className="px-5 py-2.5">
+                            {r.properties?.id ? (
+                              <Link href={`/properties/${r.properties.id}`} className="text-slate-900 underline-offset-2 hover:underline">
+                                {r.properties.estate ?? '—'}
+                              </Link>
+                            ) : (r.properties?.estate ?? '—')}
+                          </td>
+                          <td className="px-5 py-2.5">
+                            {r.properties?.id ? (
+                              <Link href={`/properties/${r.properties.id}`} className="text-slate-900 underline-offset-2 hover:underline">
+                                Lot {r.properties.lot_number ?? '—'}
+                              </Link>
+                            ) : (`Lot ${r.properties?.lot_number ?? '—'}`)}
+                          </td>
                           <td className="px-5 py-2.5 capitalize">{r.res_type}</td>
                           <td className="px-5 py-2.5 capitalize text-slate-500">{r.status}</td>
                           <td className="px-5 py-2.5 text-slate-500">{fmtDate(r.created_at)}</td>

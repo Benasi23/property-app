@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import VisibilityMenu from '@/components/VisibilityMenu'
 
 type Property = {
   id: string
@@ -142,14 +143,6 @@ export default function PropertyDetailPage() {
     load()
   }
 
-  const toggleHidden = async () => {
-    if (!prop) return
-    const { error } = await supabase.from('properties').update({ is_hidden: !prop.is_hidden }).eq('id', prop.id)
-    if (error) return toast.error(error.message)
-    toast.success(prop.is_hidden ? 'Property now visible to groups' : 'Property hidden from groups')
-    load()
-  }
-
   const addDoc = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !propertyId) return
@@ -194,14 +187,7 @@ export default function PropertyDetailPage() {
       subtitle={location}
       actions={
         <div className="flex items-center gap-4">
-          {isHq && prop && (
-            <button
-              onClick={toggleHidden}
-              className={`rounded px-3 py-1.5 text-sm font-medium ${prop.is_hidden ? 'bg-amber-100 text-amber-700' : 'border border-slate-200 text-slate-600'}`}
-            >
-              {prop.is_hidden ? 'Hidden — show to groups' : 'Visible to groups'}
-            </button>
-          )}
+          {isHq && prop && <VisibilityMenu kind="property" id={prop.id} />}
           {prop?.project_id ? (
             <Link href={`/projects/${prop.project_id}`} className="text-sm text-slate-500 hover:text-black">
               ← Back to project
