@@ -53,6 +53,16 @@ export default function GroupDetailPage() {
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [savingLogo, setSavingLogo] = useState(false)
 
+  const [editing, setEditing] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [edit, setEdit] = useState({
+    name: '', is_active: true,
+    director_name: '', director_phone: '', director_email: '',
+    contact_name: '', contact_phone: '', contact_email: '',
+  })
+  const setE = (k: keyof typeof edit) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setEdit((f) => ({ ...f, [k]: e.target.value }))
+
   const load = useCallback(async () => {
     if (!orgId) return
     const [{ data: o }, { data: m }, { data: a }, { data: hp }, { data: rs }] = await Promise.all([
@@ -113,6 +123,42 @@ export default function GroupDetailPage() {
     load()
   }
 
+  const startEdit = () => {
+    if (!org) return
+    setEdit({
+      name: org.name ?? '',
+      is_active: org.is_active,
+      director_name: org.director_name ?? '',
+      director_phone: org.director_phone ?? '',
+      director_email: org.director_email ?? '',
+      contact_name: org.contact_name ?? '',
+      contact_phone: org.contact_phone ?? '',
+      contact_email: org.contact_email ?? '',
+    })
+    setEditing(true)
+  }
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!orgId || !edit.name.trim()) return toast.error('Group name is required')
+    setSavingEdit(true)
+    const { error } = await supabase.from('organisations').update({
+      name: edit.name.trim(),
+      is_active: edit.is_active,
+      director_name: edit.director_name.trim() || null,
+      director_phone: edit.director_phone.trim() || null,
+      director_email: edit.director_email.trim() || null,
+      contact_name: edit.contact_name.trim() || null,
+      contact_phone: edit.contact_phone.trim() || null,
+      contact_email: edit.contact_email.trim() || null,
+    }).eq('id', orgId)
+    setSavingEdit(false)
+    if (error) return toast.error(error.message)
+    toast.success('Details updated')
+    setEditing(false)
+    load()
+  }
+
   const updateLogo = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orgId || !logoFile) return
@@ -140,6 +186,14 @@ export default function GroupDetailPage() {
       subtitle="Group dashboard, details & agreement"
       actions={
         <div className="flex items-center gap-4">
+          {org && (
+            <button
+              onClick={() => (editing ? setEditing(false) : startEdit())}
+              className="rounded border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              {editing ? 'Cancel' : 'Edit details'}
+            </button>
+          )}
           <Link href={`/admin/agents/${orgId}/properties`} className="rounded bg-black px-3 py-1.5 text-sm font-medium text-white">
             View stock as cards
           </Link>
@@ -225,22 +279,61 @@ export default function GroupDetailPage() {
                 )}
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-3 text-sm font-semibold">Director</h2>
-                <dl className="space-y-1.5 text-sm">
-                  <Row k="Name" v={org.director_name} />
-                  <Row k="Contact number" v={org.director_phone} />
-                  <Row k="Email" v={org.director_email} />
-                </dl>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                <h2 className="mb-3 text-sm font-semibold">Primary contact</h2>
-                <dl className="space-y-1.5 text-sm">
-                  <Row k="Name" v={org.contact_name} />
-                  <Row k="Contact number" v={org.contact_phone} />
-                  <Row k="Email" v={org.contact_email} />
-                </dl>
-              </div>
+              {editing ? (
+                <form onSubmit={saveEdit} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <h2 className="mb-3 text-sm font-semibold">Edit details</h2>
+                  <label className="mb-3 block">
+                    <span className="text-xs text-slate-400">Group name</span>
+                    <input value={edit.name} onChange={setE('name')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                  </label>
+                  <label className="mb-4 flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={edit.is_active} onChange={(e) => setEdit((f) => ({ ...f, is_active: e.target.checked }))} />
+                    Active partner
+                  </label>
+
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Director</p>
+                  <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <input value={edit.director_name} onChange={setE('director_name')} placeholder="Name" className="rounded border px-3 py-2 text-sm" />
+                    <input value={edit.director_phone} onChange={setE('director_phone')} placeholder="Contact number" className="rounded border px-3 py-2 text-sm" />
+                    <input value={edit.director_email} onChange={setE('director_email')} placeholder="Email" className="rounded border px-3 py-2 text-sm" />
+                  </div>
+
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Primary contact</p>
+                  <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <input value={edit.contact_name} onChange={setE('contact_name')} placeholder="Name" className="rounded border px-3 py-2 text-sm" />
+                    <input value={edit.contact_phone} onChange={setE('contact_phone')} placeholder="Contact number" className="rounded border px-3 py-2 text-sm" />
+                    <input value={edit.contact_email} onChange={setE('contact_email')} placeholder="Email" className="rounded border px-3 py-2 text-sm" />
+                  </div>
+
+                  <div className="flex gap-2">
+                    <button type="submit" disabled={savingEdit} className="rounded bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50">
+                      {savingEdit ? 'Saving…' : 'Save changes'}
+                    </button>
+                    <button type="button" onClick={() => setEditing(false)} className="rounded border border-slate-200 px-5 py-2 text-sm font-medium text-slate-600">
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="mb-3 text-sm font-semibold">Director</h2>
+                    <dl className="space-y-1.5 text-sm">
+                      <Row k="Name" v={org.director_name} />
+                      <Row k="Contact number" v={org.director_phone} />
+                      <Row k="Email" v={org.director_email} />
+                    </dl>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <h2 className="mb-3 text-sm font-semibold">Primary contact</h2>
+                    <dl className="space-y-1.5 text-sm">
+                      <Row k="Name" v={org.contact_name} />
+                      <Row k="Contact number" v={org.contact_phone} />
+                      <Row k="Email" v={org.contact_email} />
+                    </dl>
+                  </div>
+                </>
+              )}
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-sm font-semibold">Users ({members.length})</h2>
                 {members.length === 0 ? (
