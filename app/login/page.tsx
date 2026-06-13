@@ -68,6 +68,10 @@ export default function LoginPage() {
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
 
+        <p className="text-center text-sm">
+          <a href="/auth/forgot-password" className="text-gray-500 hover:text-black">Forgot password?</a>
+        </p>
+
         <p className="text-center text-xs text-gray-400">
           Access is provided by Mirum Group. Contact your administrator for an account.
         </p>

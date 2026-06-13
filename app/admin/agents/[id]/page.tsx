@@ -63,6 +63,11 @@ export default function GroupDetailPage() {
   const setE = (k: keyof typeof edit) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setEdit((f) => ({ ...f, [k]: e.target.value }))
 
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviting, setInviting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
   const load = useCallback(async () => {
     if (!orgId) return
     const [{ data: o }, { data: m }, { data: a }, { data: hp }, { data: rs }] = await Promise.all([
@@ -157,6 +162,39 @@ export default function GroupDetailPage() {
     toast.success('Details updated')
     setEditing(false)
     load()
+  }
+
+  const sendInvite = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!orgId || !inviteEmail.trim()) return
+    setInviting(true)
+    const { data: s } = await supabase.auth.getSession()
+    const res = await fetch('/api/invite-user', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.session?.access_token ?? ''}` },
+      body: JSON.stringify({ email: inviteEmail.trim(), organisationId: orgId }),
+    })
+    const json = await res.json()
+    setInviting(false)
+    if (!res.ok) return toast.error(json.error || 'Invite failed')
+    toast.success(`Invite sent to ${inviteEmail.trim()}`)
+    setInviteEmail('')
+  }
+
+  const deleteGroup = async () => {
+    if (!orgId) return
+    setDeleting(true)
+    // Free any stock this group was holding so it returns to available.
+    await supabase
+      .from('properties')
+      .update({ status: 'available', held_by_org: null, held_by_user: null, hold_expires_at: null })
+      .eq('held_by_org', orgId)
+      .in('status', ['hold', 'reserved', 'under_contract'])
+    const { error } = await supabase.from('organisations').delete().eq('id', orgId)
+    setDeleting(false)
+    if (error) return toast.error(error.message)
+    toast.success('Selling group deleted')
+    router.push('/admin/agents')
   }
 
   const updateLogo = async (e: React.FormEvent) => {
@@ -313,6 +351,30 @@ export default function GroupDetailPage() {
                       Cancel
                     </button>
                   </div>
+
+                  {/* Danger zone — delete group (two-step) */}
+                  <div className="mt-6 border-t border-slate-100 pt-4">
+                    {!confirmDelete ? (
+                      <button type="button" onClick={() => setConfirmDelete(true)} className="text-sm font-medium text-red-600 hover:underline">
+                        Delete this selling group
+                      </button>
+                    ) : (
+                      <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                        <p className="text-sm text-red-700">
+                          Are you sure? This permanently deletes <b>{org.name}</b>, its reservations, sales records and
+                          agreement, frees any stock it was holding, and unlinks its users. This can&apos;t be undone.
+                        </p>
+                        <div className="mt-3 flex gap-2">
+                          <button type="button" onClick={deleteGroup} disabled={deleting} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                            {deleting ? 'Deleting…' : 'Yes, delete group'}
+                          </button>
+                          <button type="button" onClick={() => setConfirmDelete(false)} className="rounded border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </form>
               ) : (
                 <>
@@ -337,7 +399,7 @@ export default function GroupDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-sm font-semibold">Users ({members.length})</h2>
                 {members.length === 0 ? (
-                  <p className="text-sm text-slate-400">No users yet. Add them in Supabase → Authentication, then link to this group.</p>
+                  <p className="text-sm text-slate-400">No users yet. Invite one below.</p>
                 ) : (
                   <ul className="space-y-1.5 text-sm">
                     {members.map((m) => (
@@ -348,6 +410,20 @@ export default function GroupDetailPage() {
                     ))}
                   </ul>
                 )}
+
+                <form onSubmit={sendInvite} className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="Invite a user by email"
+                    className="flex-1 rounded border px-3 py-2 text-sm"
+                  />
+                  <button type="submit" disabled={inviting} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                    {inviting ? 'Sending…' : 'Send invite'}
+                  </button>
+                </form>
+                <p className="mt-2 text-xs text-slate-400">They&apos;ll get an email to set their own password and activate their account.</p>
               </div>
             </div>
 

@@ -33,6 +33,8 @@ export default function SellingGroupsPage() {
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ ...EMPTY })
   const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [inviteDirector, setInviteDirector] = useState(false)
+  const [inviteContact, setInviteContact] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -98,10 +100,33 @@ export default function SellingGroupsPage() {
       else if (url) await supabase.from('organisations').update({ logo_url: url }).eq('id', created.id)
     }
 
+    // Send platform-access invites to whichever emails were ticked.
+    if (created) {
+      const { data: s } = await supabase.auth.getSession()
+      const token = s.session?.access_token ?? ''
+      const toInvite: string[] = []
+      if (inviteDirector && form.director_email.trim()) toInvite.push(form.director_email.trim())
+      if (inviteContact && form.contact_email.trim()) toInvite.push(form.contact_email.trim())
+      for (const email of toInvite) {
+        const res = await fetch('/api/invite-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, organisationId: created.id }),
+        })
+        if (!res.ok) {
+          const j = await res.json()
+          toast.error(`Invite to ${email} failed: ${j.error ?? ''}`)
+        }
+      }
+      if (toInvite.length) toast.success(`Invite${toInvite.length > 1 ? 's' : ''} sent`)
+    }
+
     setSaving(false)
     toast.success('Selling group created')
     setForm({ ...EMPTY })
     setLogoFile(null)
+    setInviteDirector(false)
+    setInviteContact(false)
     load()
   }
 
@@ -124,18 +149,26 @@ export default function SellingGroupsPage() {
             />
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Director</p>
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <input value={form.director_name} onChange={set('director_name')} placeholder="Director name" className="rounded border px-3 py-2 text-sm" />
               <input value={form.director_phone} onChange={set('director_phone')} placeholder="Director contact number" className="rounded border px-3 py-2 text-sm" />
               <input value={form.director_email} onChange={set('director_email')} placeholder="Director email" className="rounded border px-3 py-2 text-sm" />
             </div>
+            <label className="mb-4 mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={inviteDirector} onChange={(e) => setInviteDirector(e.target.checked)} />
+              Give the director platform access (email them an invite)
+            </label>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Primary contact</p>
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <input value={form.contact_name} onChange={set('contact_name')} placeholder="Contact name" className="rounded border px-3 py-2 text-sm" />
               <input value={form.contact_phone} onChange={set('contact_phone')} placeholder="Contact number" className="rounded border px-3 py-2 text-sm" />
               <input value={form.contact_email} onChange={set('contact_email')} placeholder="Contact email" className="rounded border px-3 py-2 text-sm" />
             </div>
+            <label className="mb-4 mt-2 flex items-center gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={inviteContact} onChange={(e) => setInviteContact(e.target.checked)} />
+              Give the contact platform access (email them an invite)
+            </label>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Group logo (they&apos;ll see this when they sign in)</p>
             <input
