@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 
@@ -31,6 +32,7 @@ export default function SellingGroupsPage() {
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ ...EMPTY })
+  const [logoFile, setLogoFile] = useState<File | null>(null)
   const [saving, setSaving] = useState(false)
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -69,21 +71,37 @@ export default function SellingGroupsPage() {
     e.preventDefault()
     if (!form.name.trim()) return toast.error('Group name is required')
     setSaving(true)
-    const { error } = await supabase.from('organisations').insert({
-      name: form.name.trim(),
-      org_type: 'selling_group',
-      is_active: true,
-      director_name: form.director_name.trim() || null,
-      director_phone: form.director_phone.trim() || null,
-      director_email: form.director_email.trim() || null,
-      contact_name: form.contact_name.trim() || null,
-      contact_phone: form.contact_phone.trim() || null,
-      contact_email: form.contact_email.trim() || null,
-    })
+    const { data: created, error } = await supabase
+      .from('organisations')
+      .insert({
+        name: form.name.trim(),
+        org_type: 'selling_group',
+        is_active: true,
+        director_name: form.director_name.trim() || null,
+        director_phone: form.director_phone.trim() || null,
+        director_email: form.director_email.trim() || null,
+        contact_name: form.contact_name.trim() || null,
+        contact_phone: form.contact_phone.trim() || null,
+        contact_email: form.contact_email.trim() || null,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      setSaving(false)
+      return toast.error(error.message)
+    }
+
+    if (logoFile && created) {
+      const { url, error: upErr } = await uploadToDocuments(logoFile, `logos/${created.id}`)
+      if (upErr) toast.error(`Group made, but logo failed: ${upErr.message}`)
+      else if (url) await supabase.from('organisations').update({ logo_url: url }).eq('id', created.id)
+    }
+
     setSaving(false)
-    if (error) return toast.error(error.message)
     toast.success('Selling group created')
     setForm({ ...EMPTY })
+    setLogoFile(null)
     load()
   }
 
@@ -118,6 +136,14 @@ export default function SellingGroupsPage() {
               <input value={form.contact_phone} onChange={set('contact_phone')} placeholder="Contact number" className="rounded border px-3 py-2 text-sm" />
               <input value={form.contact_email} onChange={set('contact_email')} placeholder="Contact email" className="rounded border px-3 py-2 text-sm" />
             </div>
+
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Group logo (they&apos;ll see this when they sign in)</p>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
+              className="mb-4 block w-full rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
+            />
 
             <button type="submit" disabled={saving} className="rounded bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50">
               {saving ? 'Creating…' : 'Create group'}

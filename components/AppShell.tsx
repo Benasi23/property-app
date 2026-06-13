@@ -43,7 +43,7 @@ export default function AppShell({
   children: React.ReactNode
 }) {
   const pathname = usePathname()
-  const { user, role, signOut } = useAuth()
+  const { user, role, orgName, orgLogo, signOut } = useAuth()
   const isHq = role === 'hq_admin'
 
   return (
@@ -55,6 +55,21 @@ export default function AppShell({
           <img src="/mirum-logo.png" alt="Mirum Group" className="w-full rounded-lg" />
           <p className="mt-1 text-center text-[11px] tracking-wide text-slate-400">Selling Platform</p>
         </div>
+
+        {/* Selling group's own branding when they sign in */}
+        {!isHq && orgName && (
+          <div className="mx-4 mb-2 flex items-center gap-2 rounded-lg border border-slate-100 bg-slate-50 p-2">
+            {orgLogo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={orgLogo} alt={orgName} className="h-8 w-8 rounded object-cover" />
+            ) : (
+              <div className="flex h-8 w-8 items-center justify-center rounded bg-slate-200 text-xs font-bold text-slate-500">
+                {orgName.charAt(0)}
+              </div>
+            )}
+            <span className="truncate text-xs font-medium text-slate-600">{orgName}</span>
+          </div>
+        )}
 
         <nav className="flex-1 space-y-1 px-3 py-2">
           {NAV.filter((n) => !n.hqOnly || isHq).map((n) => {
