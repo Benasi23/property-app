@@ -242,7 +242,7 @@ export default function GroupDetailPage() {
       {authLoading || loading ? (
         <div className="p-10 text-slate-400">Loading…</div>
       ) : !isHq ? (
-        <p className="text-slate-500">Only Mirum Group admins can view group details.</p>
+        <p className="text-slate-500">Only Moneta Group admins can view group details.</p>
       ) : !org ? (
         <p className="text-slate-500">Group not found.</p>
       ) : (

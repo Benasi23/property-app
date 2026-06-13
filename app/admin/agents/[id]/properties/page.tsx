@@ -55,7 +55,7 @@ export default function GroupPropertiesPage() {
       {authLoading || loading ? (
         <div className="p-10 text-slate-400">Loading…</div>
       ) : !isHq ? (
-        <p className="text-slate-500">Only Mirum Group admins can view this.</p>
+        <p className="text-slate-500">Only Moneta Group admins can view this.</p>
       ) : props.length === 0 ? (
         <p className="text-slate-500">This group has no properties held or reserved yet.</p>
       ) : (

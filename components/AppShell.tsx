@@ -52,7 +52,7 @@ export default function AppShell({
       <aside className="fixed inset-y-0 left-0 flex w-60 flex-col border-r border-slate-200 bg-white">
         <div className="px-4 py-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/mirum-logo.png" alt="Mirum Group" className="w-full rounded-lg" />
+          <img src="/mirum-logo.png" alt="Moneta Group" className="w-full rounded-lg" />
           <p className="mt-1 text-center text-[11px] tracking-wide text-slate-400">Selling Platform</p>
         </div>
 

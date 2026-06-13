@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       .eq('id', userData.user.id)
       .single()
     if (profile?.role !== 'hq_admin') {
-      return Response.json({ error: 'Only Mirum admins can invite users' }, { status: 403 })
+      return Response.json({ error: 'Only Moneta admins can invite users' }, { status: 403 })
     }
 
     const body = await req.json()

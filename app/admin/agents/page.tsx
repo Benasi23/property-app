@@ -135,7 +135,7 @@ export default function SellingGroupsPage() {
       {authLoading || loading ? (
         <div className="p-10 text-slate-400">Loading…</div>
       ) : !isHq ? (
-        <p className="text-slate-500">Only Mirum Group admins can manage selling groups.</p>
+        <p className="text-slate-500">Only Moneta Group admins can manage selling groups.</p>
       ) : (
         <div className="space-y-6">
           <form onSubmit={createGroup} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">

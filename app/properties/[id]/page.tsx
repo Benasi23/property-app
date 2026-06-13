@@ -156,7 +156,7 @@ export default function PropertyDetailPage() {
       const { data, error } = await supabase.rpc('request_hold', { p_property_id: propertyId })
       setBusy(false)
       if (error) toast.error(error.message)
-      else if (data === 'pending') toast.success('Hold request sent to Mirum HQ for approval')
+      else if (data === 'pending') toast.success('Hold request sent to Moneta HQ for approval')
       else toast.success('Held for 72 hours')
       load()
       return
@@ -166,7 +166,7 @@ export default function PropertyDetailPage() {
     const { data, error } = await supabase.rpc('request_reservation', { p_property_id: propertyId })
     setBusy(false)
     if (error) toast.error(error.message)
-    else if (data === 'pending') toast.success('Reservation request sent to Mirum HQ for approval')
+    else if (data === 'pending') toast.success('Reservation request sent to Moneta HQ for approval')
     else toast.success('Lot reserved')
     load()
   }
@@ -267,7 +267,7 @@ export default function PropertyDetailPage() {
                   {prop.hold_expires_at ? (
                     <p className="font-medium text-amber-700">⏳ Hold expires in <Countdown expires={prop.hold_expires_at} /></p>
                   ) : (
-                    <p className="font-medium text-purple-700">Hold request pending Mirum HQ approval</p>
+                    <p className="font-medium text-purple-700">Hold request pending Moneta HQ approval</p>
                   )}
                 </div>
               )}

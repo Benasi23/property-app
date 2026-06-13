@@ -141,8 +141,8 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     else if (res.pending)
       toast.success(
         'kind' in res && res.kind === 'reservation'
-          ? 'Reservation request sent to Mirum HQ for approval'
-          : 'Hold request sent to Mirum HQ for approval'
+          ? 'Reservation request sent to Moneta HQ for approval'
+          : 'Hold request sent to Moneta HQ for approval'
       )
     else
       toast.success(
