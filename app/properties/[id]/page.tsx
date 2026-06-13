@@ -9,6 +9,7 @@ import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import VisibilityMenu from '@/components/VisibilityMenu'
+import Countdown from '@/components/Countdown'
 
 type Property = {
   id: string
@@ -23,6 +24,7 @@ type Property = {
   price: number | null
   status: string
   held_by_org: string | null
+  hold_expires_at: string | null
   project_id: string | null
   is_hidden: boolean
 }
@@ -130,21 +132,38 @@ export default function PropertyDetailPage() {
   const claim = async (resType: 'hold' | 'reservation') => {
     if (!propertyId) return
     setBusy(true)
-    // HQ placing on behalf of a chosen group → reserve_property_for; otherwise own org.
-    const { error } =
-      isHq && selectedOrg
-        ? await supabase.rpc('reserve_property_for', {
-            p_property_id: propertyId,
-            p_org_id: selectedOrg,
-            p_res_type: resType,
-          })
-        : await supabase.rpc('reserve_property', {
-            p_property_id: propertyId,
-            p_res_type: resType,
-          })
+
+    if (isHq && selectedOrg) {
+      // HQ placing on behalf of a chosen group
+      const { error } = await supabase.rpc('reserve_property_for', {
+        p_property_id: propertyId,
+        p_org_id: selectedOrg,
+        p_res_type: resType,
+      })
+      setBusy(false)
+      if (error) toast.error(error.message)
+      else toast.success(resType === 'reservation' ? 'Lot reserved' : 'Lot held')
+      load()
+      return
+    }
+
+    if (resType === 'hold') {
+      // 72h hold (auto once/7 days, otherwise pending HQ approval)
+      const { data, error } = await supabase.rpc('request_hold', { p_property_id: propertyId })
+      setBusy(false)
+      if (error) toast.error(error.message)
+      else if (data === 'pending') toast.success('Hold request sent to Mirum HQ for approval')
+      else toast.success('Held for 72 hours')
+      load()
+      return
+    }
+
+    // Reservation request — needs HQ approval for groups (instant for HQ)
+    const { data, error } = await supabase.rpc('request_reservation', { p_property_id: propertyId })
     setBusy(false)
     if (error) toast.error(error.message)
-    else toast.success(resType === 'reservation' ? 'Lot reserved' : 'Lot held')
+    else if (data === 'pending') toast.success('Reservation request sent to Mirum HQ for approval')
+    else toast.success('Lot reserved')
     load()
   }
 
@@ -228,6 +247,16 @@ export default function PropertyDetailPage() {
                 {prop.land_size_sqm != null && <Row k="Land" v={`${prop.land_size_sqm} m²`} />}
                 {prop.address && <Row k="Address" v={prop.address} />}
               </dl>
+
+              {prop.status === 'hold' && (
+                <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm">
+                  {prop.hold_expires_at ? (
+                    <p className="font-medium text-amber-700">⏳ Hold expires in <Countdown expires={prop.hold_expires_at} /></p>
+                  ) : (
+                    <p className="font-medium text-purple-700">Hold request pending Mirum HQ approval</p>
+                  )}
+                </div>
+              )}
 
               {prop.status === 'available' ? (
                 <div className="mt-4 space-y-2">

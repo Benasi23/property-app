@@ -28,21 +28,25 @@ const daysSince = (iso: string | null) => {
 
 export default function DashboardPage() {
   const router = useRouter()
-  const { user, loading: authLoading } = useAuth()
+  const { user, role, loading: authLoading } = useAuth()
+  const isHq = role === 'hq_admin'
   const [rows, setRows] = useState<Row[]>([])
   const [orgs, setOrgs] = useState<Org[]>([])
   const [projectCount, setProjectCount] = useState(0)
+  const [pendingCount, setPendingCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    const [{ data: props }, { data: o }, { count }] = await Promise.all([
+    const [{ data: props }, { data: o }, { count }, { count: pc }] = await Promise.all([
       supabase.from('properties').select('id, lot_number, estate, status, price, updated_at, held_by_org'),
       supabase.from('organisations').select('id, name, org_type'),
       supabase.from('projects').select('id', { count: 'exact', head: true }),
+      supabase.from('reservations').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
     ])
     setRows(props ?? [])
     setOrgs(o ?? [])
     setProjectCount(count ?? 0)
+    setPendingCount(pc ?? 0)
     setLoading(false)
   }, [])
 
@@ -111,6 +115,18 @@ export default function DashboardPage() {
         <div className="p-10 text-slate-400">Loading…</div>
       ) : (
         <div className="space-y-6">
+          {isHq && pendingCount > 0 && (
+            <Link
+              href="/reservations"
+              className="flex items-center justify-between rounded-xl border-2 border-purple-200 bg-purple-50 px-5 py-4 shadow-sm transition-shadow hover:shadow-md"
+            >
+              <span className="text-sm font-semibold text-purple-800">
+                ⚠ {pendingCount} hold/reservation {pendingCount === 1 ? 'request' : 'requests'} awaiting your approval
+              </span>
+              <span className="text-sm font-medium text-purple-700">Review →</span>
+            </Link>
+          )}
+
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
             {cards.map((c) => (
               <Link

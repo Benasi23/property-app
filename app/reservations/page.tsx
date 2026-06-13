@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import Countdown from '@/components/Countdown'
 
 type Reservation = {
   id: string
@@ -27,6 +28,8 @@ const STATUS_STYLE: Record<string, string> = {
   released: 'bg-slate-100 text-slate-500',
   expired: 'bg-amber-100 text-amber-700',
   cancelled: 'bg-slate-100 text-slate-500',
+  pending: 'bg-purple-100 text-purple-700',
+  rejected: 'bg-red-100 text-red-700',
 }
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—')
@@ -95,6 +98,22 @@ export default function ReservationsPage() {
     load()
   }
 
+  const approveHold = async (id: string) => {
+    const { error } = await supabase.rpc('approve_request', { p_reservation_id: id })
+    if (error) toast.error(error.message)
+    else toast.success('Request approved')
+    load()
+  }
+
+  const rejectHold = async (id: string) => {
+    const { error } = await supabase.rpc('reject_request', { p_reservation_id: id })
+    if (error) toast.error(error.message)
+    else toast.success('Request rejected')
+    load()
+  }
+
+  const pending = rows.filter((r) => r.status === 'pending')
+
   const reassign = async (reservationId: string, newOrg: string) => {
     const { error } = await supabase.rpc('reassign_reservation', {
       p_reservation_id: reservationId,
@@ -159,6 +178,29 @@ export default function ReservationsPage() {
             </form>
           )}
 
+          {isHq && pending.length > 0 && (
+            <div className="rounded-xl border-2 border-purple-200 bg-purple-50 p-4 shadow-sm">
+              <h2 className="mb-3 text-sm font-semibold text-purple-800">
+                ⚠ Requests awaiting your approval ({pending.length})
+              </h2>
+              <ul className="space-y-2">
+                {pending.map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white px-3 py-2">
+                    <span className="text-sm">
+                      <span className="font-medium">{r.properties?.estate ?? '—'} · Lot {r.properties?.lot_number ?? '—'}</span>
+                      <span className="ml-2 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium capitalize text-slate-600">{r.res_type}</span>
+                      <span className="ml-2 text-slate-500">{r.organisation_id ? orgName[r.organisation_id] ?? '' : ''}</span>
+                    </span>
+                    <span className="flex gap-1.5">
+                      <button onClick={() => approveHold(r.id)} className="rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white">Approve</button>
+                      <button onClick={() => rejectHold(r.id)} className="rounded border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50">Reject</button>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {rows.length === 0 ? (
             <p className="text-slate-500">No holds or reservations yet.</p>
           ) : (
@@ -213,16 +255,33 @@ export default function ReservationsPage() {
                       </td>
                       <td className="px-5 py-3">{r.client_name ?? '—'}</td>
                       <td className="px-5 py-3 text-slate-500">{fmtDate(r.created_at)}</td>
-                      <td className="px-5 py-3 text-slate-500">{fmtDate(r.expires_at)}</td>
+                      <td className="px-5 py-3 text-slate-500">
+                        {r.status === 'active' && r.expires_at ? (
+                          <Countdown expires={r.expires_at} className="text-amber-600" />
+                        ) : r.status === 'pending' ? (
+                          <span className="text-purple-600">awaiting approval</span>
+                        ) : (
+                          fmtDate(r.expires_at)
+                        )}
+                      </td>
                       <td className="px-5 py-3 text-right">
-                        {r.status === 'active' && (
+                        {r.status === 'pending' && isHq ? (
+                          <div className="flex justify-end gap-1.5">
+                            <button onClick={() => approveHold(r.id)} className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white">
+                              Approve
+                            </button>
+                            <button onClick={() => rejectHold(r.id)} className="rounded border border-red-200 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50">
+                              Reject
+                            </button>
+                          </div>
+                        ) : r.status === 'active' ? (
                           <button
                             onClick={() => release(r.id)}
                             className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
                           >
                             Release
                           </button>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   ))}

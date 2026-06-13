@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import Countdown from '@/components/Countdown'
 
 export type Property = {
   id: string
@@ -19,6 +20,7 @@ export type Property = {
   price: number | null
   status: string
   held_by_org: string | null
+  hold_expires_at?: string | null
   project_id?: string | null
 }
 
@@ -57,8 +59,6 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
     return g
   }, [properties])
 
-  const claimStates = ['hold', 'reserved', 'under_contract']
-
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
     if (from === to) return { ok: true }
@@ -78,31 +78,34 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
 
-    // Move into a claimed state: hold / reserved / under_contract
-    if (claimStates.includes(to)) {
+    // Place a HOLD — 72h auto (or pending HQ approval), via request flow.
+    if (to === 'hold') {
       if (from === 'available') {
-        // Atomic claim first (prevents two groups grabbing the same lot)
-        const { error } = await supabase.rpc('reserve_property', {
-          p_property_id: prop.id,
-          p_res_type: to === 'hold' ? 'hold' : 'reservation',
-        })
+        const { data, error } = await supabase.rpc('request_hold', { p_property_id: prop.id })
         if (error) return { ok: false, msg: error.message }
-        if (to === 'under_contract') {
-          const { error: e2 } = await supabase.rpc('set_property_status', {
-            p_property_id: prop.id,
-            p_status: 'under_contract',
-          })
-          if (e2) return { ok: false, msg: e2.message }
-        }
-        return { ok: true }
+        return { ok: true, pending: data === 'pending' }
       }
-      // From another claimed/sold state — just change the status
-      const { error } = await supabase.rpc('set_property_status', {
-        p_property_id: prop.id,
-        p_status: to,
-      })
+      const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'hold' })
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
+
+    // Request a RESERVATION — needs HQ approval for groups (instant for HQ).
+    if (to === 'reserved') {
+      const { data, error } = await supabase.rpc('request_reservation', { p_property_id: prop.id })
+      if (error) return { ok: false, msg: error.message }
+      return { ok: true, pending: data === 'pending', kind: 'reservation' as const }
+    }
+
+    // Under contract
+    if (to === 'under_contract') {
+      if (from === 'available') {
+        const { error } = await supabase.rpc('reserve_property', { p_property_id: prop.id, p_res_type: 'reservation' })
+        if (error) return { ok: false, msg: error.message }
+      }
+      const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'under_contract' })
+      return error ? { ok: false, msg: error.message } : { ok: true }
+    }
+
     return { ok: false, msg: 'Unsupported move' }
   }
 
@@ -121,9 +124,15 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
 
     const res = await applyTransition(prop, to)
     if (!res.ok) toast.error(res.msg || 'Could not move that lot')
+    else if (res.pending)
+      toast.success(
+        'kind' in res && res.kind === 'reservation'
+          ? 'Reservation request sent to Mirum HQ for approval'
+          : 'Hold request sent to Mirum HQ for approval'
+      )
     else
       toast.success(
-        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : `Moved to ${LABELS[to] ?? to}`
+        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : to === 'hold' ? 'Held for 72 hours' : `Moved to ${LABELS[to] ?? to}`
       )
     reload()
   }
@@ -198,6 +207,15 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
                                 <p className="mt-2 text-[11px] font-medium text-amber-600">
                                   Held by your group
                                 </p>
+                              )}
+                              {p.status === 'hold' && (
+                                p.hold_expires_at ? (
+                                  <p className="mt-1 text-[11px] font-medium text-amber-600">
+                                    ⏳ <Countdown expires={p.hold_expires_at} />
+                                  </p>
+                                ) : (
+                                  <p className="mt-1 text-[11px] font-medium text-purple-600">Pending HQ approval</p>
+                                )
                               )}
                               <Link
                                 href={`/properties/${p.id}`}
