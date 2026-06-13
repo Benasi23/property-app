@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import Dropzone from '@/components/Dropzone'
 
 type Doc = {
   id: string
@@ -184,11 +185,9 @@ export default function DocumentsPage() {
                   <option value="other">Other</option>
                 </select>
 
-                <input
-                  type="file"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                  className="rounded border px-3 py-2 text-sm sm:col-span-2 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
-                />
+                <div className="sm:col-span-2">
+                  <Dropzone onFile={setFile} busy={saving} selectedName={file?.name} label="Drag & drop a file, or click to browse" />
+                </div>
                 <input
                   value={link}
                   onChange={(e) => setLink(e.target.value)}

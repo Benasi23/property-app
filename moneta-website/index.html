@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Moneta Group — Property Partners</title>
+  <meta name="description" content="Moneta Group distributes premium house & land packages to trusted selling partners." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="icon" href="moneta-group-logo.png" />
+  <style>
+    :root { --gold: #c8a24c; --gold-soft: #e3c982; --ink: #0f0f10; }
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .gold { color: var(--gold); }
+    .bg-gold { background-color: var(--gold); }
+    .border-gold { border-color: var(--gold); }
+    .gold-grad { background: linear-gradient(90deg, var(--gold), var(--gold-soft)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .hero-bg {
+      background:
+        radial-gradient(1200px 500px at 70% -10%, rgba(200,162,76,0.18), transparent 60%),
+        linear-gradient(180deg, #141416 0%, #0f0f10 100%);
+    }
+    .card { background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); }
+  </style>
+</head>
+<body class="bg-[#0f0f10] text-slate-200">
+
+  <!-- ====== EDIT THIS: your live portal sign-in URL ====== -->
+  <script>
+    // When your portal is deployed, set this to e.g. "https://app.monetagroup.com/login"
+    // For local testing it's "http://localhost:3000/login".
+    window.PORTAL_URL = "http://localhost:3000/login";
+  </script>
+
+  <!-- Nav -->
+  <header class="sticky top-0 z-20 border-b border-white/10 bg-[#0f0f10]/80 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <div class="flex items-center gap-3">
+        <img src="moneta-group-logo.png" alt="Moneta Group" class="h-11 w-11 rounded-md object-cover" />
+        <span class="text-lg font-semibold tracking-wide">MONETA <span class="gold">GROUP</span></span>
+      </div>
+      <a class="portal-link rounded-md bg-gold px-5 py-2 text-sm font-semibold text-black transition hover:opacity-90" href="#">
+        Partner Login
+      </a>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero-bg">
+    <div class="mx-auto max-w-6xl px-6 py-28 text-center">
+      <img src="moneta-group-logo.png" alt="Moneta Group" class="mx-auto mb-8 h-28 w-28 rounded-xl object-cover shadow-2xl" />
+      <p class="mb-3 text-sm font-semibold uppercase tracking-[0.25em] gold">Property Partners</p>
+      <h1 class="mx-auto max-w-3xl text-4xl font-bold leading-tight text-white sm:text-5xl">
+        Premium house &amp; land, <span class="gold-grad">distributed to trusted partners.</span>
+      </h1>
+      <p class="mx-auto mt-6 max-w-2xl text-lg text-slate-400">
+        Moneta Group gives approved selling groups direct access to live stock, holds and reservations,
+        and the marketing material they need to sell with confidence.
+      </p>
+      <div class="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <a class="portal-link rounded-md bg-gold px-8 py-3 font-semibold text-black transition hover:opacity-90" href="#">
+          Partner Login
+        </a>
+        <a class="rounded-md border border-white/20 px-8 py-3 font-semibold text-white transition hover:border-gold hover:text-gold" href="#partner">
+          Become a partner
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Value band -->
+  <section class="border-y border-white/10 bg-[#141416]">
+    <div class="mx-auto grid max-w-6xl grid-cols-1 gap-px sm:grid-cols-3">
+      <div class="p-10 text-center">
+        <p class="text-3xl font-bold gold">Curated</p>
+        <p class="mt-2 text-sm text-slate-400">Hand-picked house &amp; land packages across quality developments.</p>
+      </div>
+      <div class="p-10 text-center sm:border-x sm:border-white/10">
+        <p class="text-3xl font-bold gold">Real-time</p>
+        <p class="mt-2 text-sm text-slate-400">Live holds and reservations — no double-selling, ever.</p>
+      </div>
+      <div class="p-10 text-center">
+        <p class="text-3xl font-bold gold">Supported</p>
+        <p class="mt-2 text-sm text-slate-400">Contracts, marketing material and everything needed to close.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- About -->
+  <section class="mx-auto max-w-4xl px-6 py-24 text-center">
+    <h2 class="text-3xl font-bold text-white">About Moneta Group</h2>
+    <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-400">
+      Moneta Group holds and distributes premium house &amp; land stock to a network of trusted selling
+      partners. Through our partner platform, approved groups access live availability, place holds and
+      reservations, and download the contracts and marketing collateral they need — all in one secure place.
+    </p>
+  </section>
+
+  <!-- For partners -->
+  <section id="partner" class="border-t border-white/10 bg-[#141416]">
+    <div class="mx-auto max-w-5xl px-6 py-24">
+      <h2 class="text-center text-3xl font-bold text-white">For selling partners</h2>
+      <div class="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-3">
+        <div class="card rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold gold">Live stock access</h3>
+          <p class="mt-2 text-sm text-slate-400">See available packages the moment they're released, with full project detail.</p>
+        </div>
+        <div class="card rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold gold">Holds &amp; reservations</h3>
+          <p class="mt-2 text-sm text-slate-400">Secure a lot instantly with a 72-hour hold, then move it through to sale.</p>
+        </div>
+        <div class="card rounded-xl border border-white/10 p-6">
+          <h3 class="font-semibold gold">Sales toolkit</h3>
+          <p class="mt-2 text-sm text-slate-400">Contracts, EOIs, deposit info and marketing material on every property.</p>
+        </div>
+      </div>
+      <div class="mt-12 text-center">
+        <a class="portal-link inline-block rounded-md bg-gold px-8 py-3 font-semibold text-black transition hover:opacity-90" href="#">
+          Access the platform
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contact -->
+  <section class="mx-auto max-w-3xl px-6 py-24 text-center">
+    <h2 class="text-3xl font-bold text-white">Become a partner</h2>
+    <p class="mt-4 text-slate-400">Interested in selling Moneta Group stock? Get in touch.</p>
+    <a href="mailto:info@monetagroup.com.au" class="mt-6 inline-block text-lg font-semibold gold hover:underline">
+      info@monetagroup.com.au
+    </a>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-white/10 bg-[#0f0f10]">
+    <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 sm:flex-row">
+      <div class="flex items-center gap-2">
+        <img src="moneta-group-logo.png" alt="Moneta Group" class="h-8 w-8 rounded object-cover" />
+        <span class="text-sm text-slate-400">© <span id="year"></span> Moneta Group. All rights reserved.</span>
+      </div>
+      <a class="portal-link text-sm font-semibold gold hover:underline" href="#">Partner Login →</a>
+    </div>
+  </footer>
+
+  <script>
+    // Point every login link at the portal, and set the year.
+    document.querySelectorAll('.portal-link').forEach(a => { a.href = window.PORTAL_URL; });
+    document.getElementById('year').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

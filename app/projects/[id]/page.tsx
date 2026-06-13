@@ -10,8 +10,9 @@ import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import StockBoard, { Property } from '@/components/StockBoard'
 import VisibilityMenu from '@/components/VisibilityMenu'
+import Dropzone from '@/components/Dropzone'
 
-type Project = { id: string; name: string; suburb: string | null; state: string | null; description: string | null; is_hidden: boolean }
+type Project = { id: string; name: string; suburb: string | null; state: string | null; description: string | null; is_hidden: boolean; marketing_image_url: string | null }
 type ProjectDoc = { id: string; title: string; doc_type: string; storage_path: string | null }
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v))
@@ -60,6 +61,12 @@ export default function ProjectDetailPage() {
   const [videoTitle, setVideoTitle] = useState('')
   const [videoUrl, setVideoUrl] = useState('')
   const [savingVideo, setSavingVideo] = useState(false)
+
+  // main marketing image
+  const [savingImage, setSavingImage] = useState(false)
+
+  // delete a document
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
 
   // add document
   const [docTitle, setDocTitle] = useState('')
@@ -143,6 +150,29 @@ export default function ProjectDetailPage() {
     load()
   }
 
+  const uploadMarketingImage = async (file: File | null) => {
+    if (!projectId || !file) return
+    if (!file.type.startsWith('image/')) return toast.error('Please choose an image file')
+    setSavingImage(true)
+    const { url, error: upErr } = await uploadToDocuments(file, `${projectId}/marketing-image`)
+    if (upErr || !url) { setSavingImage(false); return toast.error(upErr?.message ?? 'Upload failed') }
+    const { error } = await supabase.from('projects').update({ marketing_image_url: url }).eq('id', projectId)
+    setSavingImage(false)
+    if (error) return toast.error(error.message)
+    toast.success('Main marketing image updated')
+    load()
+  }
+
+  const removeMarketingImage = async () => {
+    if (!projectId) return
+    setSavingImage(true)
+    const { error } = await supabase.from('projects').update({ marketing_image_url: null }).eq('id', projectId)
+    setSavingImage(false)
+    if (error) return toast.error(error.message)
+    toast.success('Main marketing image removed')
+    load()
+  }
+
   const addDoc = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!projectId || !docTitle.trim()) return
@@ -164,6 +194,15 @@ export default function ProjectDetailPage() {
     setDocLink('')
     setDocFile(null)
     setDocType('marketing')
+    load()
+  }
+
+  const deleteDoc = async (id: string) => {
+    setDeletingDocId(id)
+    const { error } = await supabase.from('documents').delete().eq('id', id)
+    setDeletingDocId(null)
+    if (error) return toast.error(error.message)
+    toast.success('Document deleted')
     load()
   }
 
@@ -265,6 +304,42 @@ export default function ProjectDetailPage() {
             )}
           </div>
 
+          {/* Main marketing image — project hero, single image */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="mb-1 text-sm font-semibold">Main Marketing Image</h2>
+            <p className="mb-3 text-xs text-slate-400">The primary image used to represent {project?.name} for marketing.</p>
+
+            {project?.marketing_image_url ? (
+              <div className="overflow-hidden rounded-lg border border-slate-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={project.marketing_image_url} alt={`${project.name} main image`} className="max-h-80 w-full object-cover" />
+              </div>
+            ) : (
+              <p className="text-sm text-slate-400">No main image yet.</p>
+            )}
+
+            {isHq && (
+              <div className="mt-4 border-t border-slate-100 pt-4">
+                <Dropzone
+                  onFile={uploadMarketingImage}
+                  accept="image/*"
+                  busy={savingImage}
+                  label={project?.marketing_image_url ? 'Drag & drop an image to replace, or click to browse' : 'Drag & drop your main image, or click to browse'}
+                  hint="PNG or JPG"
+                />
+                {project?.marketing_image_url && (
+                  <button
+                    onClick={removeMarketingImage}
+                    disabled={savingImage}
+                    className="mt-2 rounded border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Documents — project-level */}
           <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
             <h2 className="mb-3 text-sm font-semibold">Project Documents</h2>
@@ -280,13 +355,24 @@ export default function ProjectDetailPage() {
                         {d.doc_type.replace('_', ' ')}
                       </span>
                     </span>
-                    {d.storage_path && d.storage_path.startsWith('http') ? (
-                      <a href={d.storage_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">
-                        Open
-                      </a>
-                    ) : (
-                      <span className="text-xs text-slate-300">No file</span>
-                    )}
+                    <span className="flex items-center gap-2">
+                      {d.storage_path && d.storage_path.startsWith('http') ? (
+                        <a href={d.storage_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                          Open
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-300">No file</span>
+                      )}
+                      {isHq && (
+                        <button
+                          onClick={() => deleteDoc(d.id)}
+                          disabled={deletingDocId === d.id}
+                          className="rounded border border-red-100 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingDocId === d.id ? 'Deleting…' : 'Delete'}
+                        </button>
+                      )}
+                    </span>
                   </li>
                 ))}
               </ul>
@@ -309,11 +395,9 @@ export default function ProjectDetailPage() {
                   <button type="submit" disabled={savingDoc} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                     {savingDoc ? 'Adding…' : 'Add document'}
                   </button>
-                  <input
-                    type="file"
-                    onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
-                    className="rounded border px-3 py-2 text-sm sm:col-span-2 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
-                  />
+                  <div className="sm:col-span-2">
+                    <Dropzone onFile={setDocFile} busy={savingDoc} selectedName={docFile?.name} label="Drag & drop a file, or click to browse" />
+                  </div>
                   <input value={docLink} onChange={(e) => setDocLink(e.target.value)} placeholder="…or paste a link (https://…)" className="rounded border px-3 py-2 text-sm sm:col-span-2" />
                 </div>
               </form>

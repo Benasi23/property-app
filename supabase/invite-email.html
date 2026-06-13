@@ -1,0 +1,70 @@
+<!--
+  Moneta Group — "Invite user" email template.
+  Paste the markup below into Supabase → Authentication → Emails → "Invite user".
+  Keep {{ .ConfirmationURL }} exactly as-is — it generates the secure access link.
+  Subject: Your Moneta Group Property Portal access
+-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#1b242b;margin:0;padding:32px 0;font-family:Arial,Helvetica,sans-serif;">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="width:520px;max-width:92%;background-color:#27323B;border-radius:14px;overflow:hidden;border:1px solid rgba(199,157,111,0.25);">
+        <!-- Header / logo -->
+        <tr>
+          <td align="center" style="padding:34px 40px 10px 40px;">
+            <img src="https://raw.githubusercontent.com/Benasi23/property-app/main/public/moneta-group-logo.png" width="78" height="78" alt="Moneta Group"
+                 style="display:block;width:78px;height:78px;border-radius:50%;object-fit:cover;" />
+            <div style="height:1px;width:48px;background-color:#C79D6F;margin:16px auto 0 auto;"></div>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:18px 40px 8px 40px;">
+            <h1 style="margin:0 0 18px 0;font-size:20px;line-height:1.4;color:#F4F1EC;font-weight:600;">
+              Property Portal access
+            </h1>
+            <p style="margin:0 0 16px 0;font-size:15px;line-height:1.7;color:#d7dde2;">
+              You have been registered as a user to the Moneta Group Property Portal.
+            </p>
+            <p style="margin:0 0 26px 0;font-size:15px;line-height:1.7;color:#d7dde2;">
+              Please click on the link provided to authenticate this request and receive access.
+            </p>
+          </td>
+        </tr>
+        <!-- Button -->
+        <tr>
+          <td align="center" style="padding:0 40px 30px 40px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" bgcolor="#C79D6F" style="border-radius:8px;">
+                  <a href="{{ .ConfirmationURL }}"
+                     style="display:inline-block;padding:13px 30px;font-size:15px;font-weight:600;color:#1b242b;text-decoration:none;border-radius:8px;">
+                    Authenticate &amp; activate my access
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <!-- Sign-off -->
+        <tr>
+          <td style="padding:0 40px 34px 40px;border-top:1px solid rgba(255,255,255,0.08);">
+            <p style="margin:24px 0 0 0;font-size:15px;line-height:1.6;color:#d7dde2;">
+              Regards,<br>
+              <span style="color:#C79D6F;font-weight:600;">Moneta HQ</span>
+            </p>
+          </td>
+        </tr>
+      </table>
+      <!-- Tiny footer -->
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0" style="width:520px;max-width:92%;">
+        <tr>
+          <td align="center" style="padding:18px 20px 0 20px;">
+            <p style="margin:0;font-size:11px;line-height:1.5;color:#6c7780;">
+              If you weren’t expecting this email, you can safely ignore it.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>

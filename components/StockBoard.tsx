@@ -51,8 +51,57 @@ type Props = {
   isHq?: boolean
 }
 
+const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v))
+
 export default function StockBoard({ properties, setProperties, orgId, reload, isHq = false }: Props) {
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
+
+  // HQ-only quick edit
+  const [editing, setEditing] = useState<Property | null>(null)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [form, setForm] = useState({
+    lot_number: '', house_design: '', address: '', price: '',
+    bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '',
+  })
+
+  const openEdit = (p: Property) => {
+    setForm({
+      lot_number: p.lot_number ?? '',
+      house_design: p.house_design ?? '',
+      address: p.address ?? '',
+      price: p.price?.toString() ?? '',
+      bedrooms: p.bedrooms?.toString() ?? '',
+      bathrooms: p.bathrooms?.toString() ?? '',
+      car_spaces: p.car_spaces?.toString() ?? '',
+      land_size_sqm: p.land_size_sqm?.toString() ?? '',
+    })
+    setEditing(p)
+  }
+  const setF = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [k]: e.target.value }))
+
+  const saveEdit = async () => {
+    if (!editing) return
+    setSavingEdit(true)
+    const { error } = await supabase
+      .from('properties')
+      .update({
+        lot_number: form.lot_number.trim() || null,
+        house_design: form.house_design.trim() || null,
+        address: form.address.trim() || null,
+        price: numOrNull(form.price),
+        bedrooms: numOrNull(form.bedrooms),
+        bathrooms: numOrNull(form.bathrooms),
+        car_spaces: numOrNull(form.car_spaces),
+        land_size_sqm: numOrNull(form.land_size_sqm),
+      })
+      .eq('id', editing.id)
+    setSavingEdit(false)
+    if (error) return toast.error(error.message)
+    toast.success('Lot updated')
+    setEditing(null)
+    reload()
+  }
 
   const loadOrgNames = useCallback(async () => {
     if (!isHq) return
@@ -152,6 +201,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   }
 
   return (
+    <>
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
@@ -237,12 +287,24 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                                   <p className="mt-1 text-[11px] font-medium text-purple-600">Pending HQ approval</p>
                                 )
                               )}
-                              <Link
-                                href={`/properties/${p.id}`}
-                                className="mt-2 block text-[11px] font-medium text-slate-400 hover:text-black"
-                              >
-                                View details &amp; documents →
-                              </Link>
+                              <div className="mt-2 flex items-center gap-3">
+                                {isHq && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); openEdit(p) }}
+                                    onMouseDown={(e) => e.stopPropagation()}
+                                    className="text-[11px] font-medium text-slate-400 hover:text-black"
+                                  >
+                                    Edit
+                                  </button>
+                                )}
+                                <Link
+                                  href={`/properties/${p.id}`}
+                                  className="text-[11px] font-medium text-slate-400 hover:text-black"
+                                >
+                                  View details &amp; documents →
+                                </Link>
+                              </div>
                             </div>
                           )}
                         </Draggable>
@@ -260,5 +322,51 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         })}
       </div>
     </DragDropContext>
+
+    {editing && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !savingEdit && setEditing(null)}>
+        <div className="w-full max-w-lg rounded-xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-sm font-semibold">Edit Lot {editing.lot_number ?? ''}</h3>
+            <button onClick={() => setEditing(null)} className="text-slate-400 hover:text-black">✕</button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-slate-500">Lot number
+              <input value={form.lot_number} onChange={setF('lot_number')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">House design
+              <input value={form.house_design} onChange={setF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="col-span-2 text-xs text-slate-500">Address
+              <input value={form.address} onChange={setF('address')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Price
+              <input value={form.price} onChange={setF('price')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Land m²
+              <input value={form.land_size_sqm} onChange={setF('land_size_sqm')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Beds
+              <input value={form.bedrooms} onChange={setF('bedrooms')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Baths
+              <input value={form.bathrooms} onChange={setF('bathrooms')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Cars
+              <input value={form.car_spaces} onChange={setF('car_spaces')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <button onClick={() => setEditing(null)} disabled={savingEdit} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">
+              Cancel
+            </button>
+            <button onClick={saveEdit} disabled={savingEdit} className="rounded bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50">
+              {savingEdit ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   )
 }

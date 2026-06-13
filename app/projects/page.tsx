@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 
-type Project = { id: string; name: string; suburb: string | null; state: string | null; is_hidden?: boolean }
+type Project = { id: string; name: string; suburb: string | null; state: string | null; is_hidden?: boolean; marketing_image_url?: string | null }
 type Counts = { total: number; available: number; sold: number }
 
 export default function ProjectsPage() {
@@ -121,29 +121,37 @@ export default function ProjectsPage() {
               <Link
                 key={proj.id}
                 href={`/projects/${proj.id}`}
-                className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                className="group block overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md"
               >
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base font-semibold group-hover:text-black">{proj.name}</h2>
-                  {proj.is_hidden && (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Hidden</span>
-                  )}
-                </div>
-                <p className="text-sm text-slate-500">
-                  {[proj.suburb, proj.state].filter(Boolean).join(', ') || '—'}
-                </p>
-                <div className="mt-4 flex gap-4 text-sm">
-                  <div>
-                    <p className="font-semibold">{c.total}</p>
-                    <p className="text-xs text-slate-400">Lots</p>
+                {proj.marketing_image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={proj.marketing_image_url} alt={proj.name} className="h-36 w-full object-cover" />
+                ) : (
+                  <div className="flex h-36 w-full items-center justify-center bg-slate-100 text-xs text-slate-300">No image</div>
+                )}
+                <div className="p-5">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-semibold group-hover:text-black">{proj.name}</h2>
+                    {proj.is_hidden && (
+                      <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700">Hidden</span>
+                    )}
                   </div>
-                  <div>
-                    <p className="font-semibold text-emerald-600">{c.available}</p>
-                    <p className="text-xs text-slate-400">Available</p>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-500">{c.sold}</p>
-                    <p className="text-xs text-slate-400">Sold</p>
+                  <p className="text-sm text-slate-500">
+                    {[proj.suburb, proj.state].filter(Boolean).join(', ') || '—'}
+                  </p>
+                  <div className="mt-4 flex gap-4 text-sm">
+                    <div>
+                      <p className="font-semibold">{c.total}</p>
+                      <p className="text-xs text-slate-400">Lots</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-emerald-600">{c.available}</p>
+                      <p className="text-xs text-slate-400">Available</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-500">{c.sold}</p>
+                      <p className="text-xs text-slate-400">Sold</p>
+                    </div>
                   </div>
                 </div>
               </Link>

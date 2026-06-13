@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import VisibilityMenu from '@/components/VisibilityMenu'
 import Countdown from '@/components/Countdown'
+import Dropzone from '@/components/Dropzone'
 
 type Property = {
   id: string
@@ -86,6 +87,56 @@ export default function PropertyDetailPage() {
   // HQ: delete property
   const [confirmDel, setConfirmDel] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null)
+
+  // HQ: edit lot details
+  const [showEdit, setShowEdit] = useState(false)
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [editForm, setEditForm] = useState({
+    lot_number: '', house_design: '', address: '', price: '',
+    bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '',
+  })
+  const setEF = (k: keyof typeof editForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setEditForm((f) => ({ ...f, [k]: e.target.value }))
+  const editNum = (v: string) => (v.trim() === '' ? null : Number(v))
+
+  const openEdit = () => {
+    if (!prop) return
+    setEditForm({
+      lot_number: prop.lot_number ?? '',
+      house_design: prop.house_design ?? '',
+      address: prop.address ?? '',
+      price: prop.price?.toString() ?? '',
+      bedrooms: prop.bedrooms?.toString() ?? '',
+      bathrooms: prop.bathrooms?.toString() ?? '',
+      car_spaces: prop.car_spaces?.toString() ?? '',
+      land_size_sqm: prop.land_size_sqm?.toString() ?? '',
+    })
+    setShowEdit(true)
+  }
+
+  const saveEdit = async () => {
+    if (!propertyId) return
+    setSavingEdit(true)
+    const { error } = await supabase
+      .from('properties')
+      .update({
+        lot_number: editForm.lot_number.trim() || null,
+        house_design: editForm.house_design.trim() || null,
+        address: editForm.address.trim() || null,
+        price: editNum(editForm.price),
+        bedrooms: editNum(editForm.bedrooms),
+        bathrooms: editNum(editForm.bathrooms),
+        car_spaces: editNum(editForm.car_spaces),
+        land_size_sqm: editNum(editForm.land_size_sqm),
+      })
+      .eq('id', propertyId)
+    setSavingEdit(false)
+    if (error) return toast.error(error.message)
+    toast.success('Lot details updated')
+    setShowEdit(false)
+    load()
+  }
 
   const load = useCallback(async () => {
     if (!propertyId) return
@@ -179,6 +230,15 @@ export default function PropertyDetailPage() {
     if (error) return toast.error(error.message)
     toast.success('Property deleted')
     router.push(prop?.project_id ? `/projects/${prop.project_id}` : '/properties')
+  }
+
+  const deleteDoc = async (id: string) => {
+    setDeletingDocId(id)
+    const { error } = await supabase.from('documents').delete().eq('id', id)
+    setDeletingDocId(null)
+    if (error) return toast.error(error.message)
+    toast.success('Document deleted')
+    load()
   }
 
   const addDoc = async (e: React.FormEvent) => {
@@ -315,26 +375,74 @@ export default function PropertyDetailPage() {
             </div>
 
             {isHq && (
-              <div className="rounded-xl border border-red-100 bg-white p-5 shadow-sm">
-                {!confirmDel ? (
-                  <button onClick={() => setConfirmDel(true)} className="text-sm font-medium text-red-600 hover:underline">
-                    Delete this property
+              <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                {/* Edit lot details */}
+                {!showEdit ? (
+                  <button onClick={openEdit} className="text-sm font-medium text-slate-700 hover:text-black">
+                    Edit property details
                   </button>
                 ) : (
                   <div>
-                    <p className="text-sm text-red-700">
-                      Permanently delete <b>Lot {prop.lot_number ?? '—'}</b> and all its documents, holds and reservations? This can&apos;t be undone.
-                    </p>
+                    <p className="mb-3 text-sm font-semibold">Edit property details</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <label className="text-xs text-slate-500">Lot number
+                        <input value={editForm.lot_number} onChange={setEF('lot_number')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">House design
+                        <input value={editForm.house_design} onChange={setEF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="col-span-2 text-xs text-slate-500">Address
+                        <input value={editForm.address} onChange={setEF('address')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Price
+                        <input value={editForm.price} onChange={setEF('price')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Land m²
+                        <input value={editForm.land_size_sqm} onChange={setEF('land_size_sqm')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Beds
+                        <input value={editForm.bedrooms} onChange={setEF('bedrooms')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Baths
+                        <input value={editForm.bathrooms} onChange={setEF('bathrooms')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Cars
+                        <input value={editForm.car_spaces} onChange={setEF('car_spaces')} inputMode="numeric" className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                    </div>
                     <div className="mt-3 flex gap-2">
-                      <button onClick={deleteProperty} disabled={deleting} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                        {deleting ? 'Deleting…' : 'Yes, delete'}
+                      <button onClick={saveEdit} disabled={savingEdit} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                        {savingEdit ? 'Saving…' : 'Save changes'}
                       </button>
-                      <button onClick={() => setConfirmDel(false)} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                      <button onClick={() => setShowEdit(false)} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600">
                         Cancel
                       </button>
                     </div>
                   </div>
                 )}
+
+                {/* Delete */}
+                <div className="border-t border-slate-100 pt-4">
+                  {!confirmDel ? (
+                    <button onClick={() => setConfirmDel(true)} className="text-sm font-medium text-red-600 hover:underline">
+                      Delete this property
+                    </button>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-red-700">
+                        Permanently delete <b>Lot {prop.lot_number ?? '—'}</b> and all its documents, holds and reservations? This can&apos;t be undone.
+                      </p>
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={deleteProperty} disabled={deleting} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                          {deleting ? 'Deleting…' : 'Yes, delete'}
+                        </button>
+                        <button onClick={() => setConfirmDel(false)} className="rounded border border-slate-200 px-4 py-2 text-sm text-slate-600">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -367,13 +475,24 @@ export default function PropertyDetailPage() {
                                 <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-400">{submitted}</span>
                               )}
                             </span>
-                            {d.storage_path && d.storage_path.startsWith('http') ? (
-                              <a href={d.storage_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">
-                                Open
-                              </a>
-                            ) : (
-                              <span className="text-xs text-slate-300">No file</span>
-                            )}
+                            <span className="flex items-center gap-2">
+                              {d.storage_path && d.storage_path.startsWith('http') ? (
+                                <a href={d.storage_path} target="_blank" rel="noopener noreferrer" className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50">
+                                  Open
+                                </a>
+                              ) : (
+                                <span className="text-xs text-slate-300">No file</span>
+                              )}
+                              {isHq && (
+                                <button
+                                  onClick={() => deleteDoc(d.id)}
+                                  disabled={deletingDocId === d.id}
+                                  className="rounded border border-red-100 px-2.5 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  {deletingDocId === d.id ? 'Deleting…' : 'Delete'}
+                                </button>
+                              )}
+                            </span>
                           </li>
                         )
                       })}
@@ -416,11 +535,9 @@ export default function PropertyDetailPage() {
                   <button type="submit" disabled={saving} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
                     {saving ? 'Adding…' : 'Add'}
                   </button>
-                  <input
-                    type="file"
-                    onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                    className="rounded border px-3 py-2 text-sm sm:col-span-2 file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
-                  />
+                  <div className="sm:col-span-2">
+                    <Dropzone onFile={setFile} busy={saving} selectedName={file?.name} label="Drag & drop a file, or click to browse" />
+                  </div>
                   <input
                     value={link}
                     onChange={(e) => setLink(e.target.value)}
@@ -476,13 +593,9 @@ function GroupUploadForm({
   }
 
   return (
-    <form onSubmit={submit} className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row">
-      <input
-        type="file"
-        onChange={(e) => setF(e.target.files?.[0] ?? null)}
-        className="flex-1 rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
-      />
-      <button type="submit" disabled={busy || !f} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+    <form onSubmit={submit} className="mt-3 flex flex-col gap-2 border-t border-slate-100 pt-3">
+      <Dropzone onFile={setF} busy={busy} selectedName={f?.name} label="Drag & drop your file, or click to browse" />
+      <button type="submit" disabled={busy || !f} className="self-start rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
         {busy ? 'Uploading…' : cta}
       </button>
     </form>

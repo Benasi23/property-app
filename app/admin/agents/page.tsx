@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import Dropzone from '@/components/Dropzone'
 
 type Org = {
   id: string
@@ -16,6 +17,7 @@ type Org = {
   is_active: boolean
   contact_name: string | null
   contact_email: string | null
+  logo_url: string | null
 }
 type Profile = { organisation_id: string | null }
 
@@ -44,7 +46,7 @@ export default function SellingGroupsPage() {
     const [{ data: orgData }, { data: profData }] = await Promise.all([
       supabase
         .from('organisations')
-        .select('id, name, org_type, is_active, contact_name, contact_email')
+        .select('id, name, org_type, is_active, contact_name, contact_email, logo_url')
         .order('name'),
       supabase.from('profiles').select('organisation_id'),
     ])
@@ -171,12 +173,9 @@ export default function SellingGroupsPage() {
             </label>
 
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Group logo (they&apos;ll see this when they sign in)</p>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)}
-              className="mb-4 block w-full rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs"
-            />
+            <div className="mb-4">
+              <Dropzone onFile={setLogoFile} accept="image/*" busy={saving} selectedName={logoFile?.name} label="Drag & drop a logo, or click to browse" hint="PNG or JPG" />
+            </div>
 
             <button type="submit" disabled={saving} className="rounded bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50">
               {saving ? 'Creating…' : 'Create group'}
@@ -196,9 +195,19 @@ export default function SellingGroupsPage() {
                   href={`/admin/agents/${o.id}`}
                   className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
                 >
-                  <div className="flex items-start justify-between">
-                    <h2 className="text-base font-semibold group-hover:text-black">{o.name}</h2>
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${o.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {o.logo_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={o.logo_url} alt={o.name} className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                      ) : (
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-bold text-slate-400">
+                          {o.name.charAt(0)}
+                        </div>
+                      )}
+                      <h2 className="truncate text-base font-semibold group-hover:text-black">{o.name}</h2>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${o.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
                       {o.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>

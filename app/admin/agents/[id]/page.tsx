@@ -8,6 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import Dropzone from '@/components/Dropzone'
 
 type Org = {
   id: string
@@ -63,7 +64,7 @@ export default function GroupDetailPage() {
   const setE = (k: keyof typeof edit) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setEdit((f) => ({ ...f, [k]: e.target.value }))
 
-  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteEmails, setInviteEmails] = useState<string[]>([''])
   const [inviting, setInviting] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -164,21 +165,35 @@ export default function GroupDetailPage() {
     load()
   }
 
-  const sendInvite = async (e: React.FormEvent) => {
+  const setEmailAt = (i: number, v: string) =>
+    setInviteEmails((a) => a.map((e, idx) => (idx === i ? v : e)))
+  const addEmailRow = () => setInviteEmails((a) => [...a, ''])
+  const removeEmailRow = (i: number) =>
+    setInviteEmails((a) => (a.length === 1 ? [''] : a.filter((_, idx) => idx !== i)))
+
+  const sendInvites = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!orgId || !inviteEmail.trim()) return
+    if (!orgId) return
+    const emails = Array.from(new Set(inviteEmails.map((x) => x.trim()).filter(Boolean)))
+    if (emails.length === 0) return toast.error('Add at least one email')
     setInviting(true)
     const { data: s } = await supabase.auth.getSession()
-    const res = await fetch('/api/invite-user', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.session?.access_token ?? ''}` },
-      body: JSON.stringify({ email: inviteEmail.trim(), organisationId: orgId }),
-    })
-    const json = await res.json()
+    const token = s.session?.access_token ?? ''
+    let ok = 0
+    for (const email of emails) {
+      const res = await fetch('/api/invite-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email, organisationId: orgId }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) ok++
+      else toast.error(`${email}: ${json.error || 'invite failed'}`)
+    }
     setInviting(false)
-    if (!res.ok) return toast.error(json.error || 'Invite failed')
-    toast.success(`Invite sent to ${inviteEmail.trim()}`)
-    setInviteEmail('')
+    if (ok > 0) toast.success(`${ok} invite${ok > 1 ? 's' : ''} sent`)
+    setInviteEmails([''])
+    load()
   }
 
   const deleteGroup = async () => {
@@ -399,7 +414,7 @@ export default function GroupDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-sm font-semibold">Users ({members.length})</h2>
                 {members.length === 0 ? (
-                  <p className="text-sm text-slate-400">No users yet. Invite one below.</p>
+                  <p className="text-sm text-slate-400">No users yet. Invite one or more below.</p>
                 ) : (
                   <ul className="space-y-1.5 text-sm">
                     {members.map((m) => (
@@ -411,19 +426,39 @@ export default function GroupDetailPage() {
                   </ul>
                 )}
 
-                <form onSubmit={sendInvite} className="mt-4 flex flex-col gap-2 border-t border-slate-100 pt-4 sm:flex-row">
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="Invite a user by email"
-                    className="flex-1 rounded border px-3 py-2 text-sm"
-                  />
-                  <button type="submit" disabled={inviting} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                    {inviting ? 'Sending…' : 'Send invite'}
-                  </button>
+                <form onSubmit={sendInvites} className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invite users</p>
+                  {inviteEmails.map((em, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="email"
+                        value={em}
+                        onChange={(e) => setEmailAt(i, e.target.value)}
+                        placeholder="user@example.com"
+                        className="flex-1 rounded border px-3 py-2 text-sm"
+                      />
+                      {inviteEmails.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeEmailRow(i)}
+                          aria-label="Remove email"
+                          className="rounded border border-slate-200 px-3 text-sm text-slate-400 hover:text-red-600"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between pt-1">
+                    <button type="button" onClick={addEmailRow} className="text-xs font-medium text-slate-500 hover:text-black">
+                      ＋ Add another user
+                    </button>
+                    <button type="submit" disabled={inviting} className="rounded bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                      {inviting ? 'Sending…' : 'Send invites'}
+                    </button>
+                  </div>
                 </form>
-                <p className="mt-2 text-xs text-slate-400">They&apos;ll get an email to set their own password and activate their account.</p>
+                <p className="mt-2 text-xs text-slate-400">Each person gets an email to set their own password and activate their account.</p>
               </div>
             </div>
 
@@ -432,8 +467,14 @@ export default function GroupDetailPage() {
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-sm font-semibold">Group Logo</h2>
                 <p className="mb-3 text-xs text-slate-400">Shown to this group when they sign in.</p>
+                {org.logo_url && (
+                  <div className="mb-3 flex justify-center rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={org.logo_url} alt={`${org.name} logo`} className="h-20 w-20 rounded-md object-cover" />
+                  </div>
+                )}
                 <form onSubmit={updateLogo} className="space-y-2">
-                  <input type="file" accept="image/*" onChange={(e) => setLogoFile(e.target.files?.[0] ?? null)} className="w-full rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs" />
+                  <Dropzone onFile={setLogoFile} accept="image/*" busy={savingLogo} selectedName={logoFile?.name} label="Drag & drop a logo, or click to browse" hint="PNG or JPG" />
                   <button type="submit" disabled={savingLogo} className="w-full rounded bg-black py-2 text-sm font-medium text-white disabled:opacity-50">
                     {savingLogo ? 'Uploading…' : org.logo_url ? 'Replace logo' : 'Upload logo'}
                   </button>
@@ -460,7 +501,7 @@ export default function GroupDetailPage() {
                 )}
                 <form onSubmit={addAgreement} className="mt-4 space-y-2 border-t border-slate-100 pt-4">
                   <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title" className="w-full rounded border px-3 py-2 text-sm" />
-                  <input type="file" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="w-full rounded border px-3 py-2 text-sm file:mr-3 file:rounded file:border-0 file:bg-slate-100 file:px-3 file:py-1 file:text-xs" />
+                  <Dropzone onFile={setFile} busy={saving} selectedName={file?.name} label="Drag & drop a file, or click to browse" />
                   <input value={link} onChange={(e) => setLink(e.target.value)} placeholder="…or paste a link" className="w-full rounded border px-3 py-2 text-sm" />
                   <button type="submit" disabled={saving} className="w-full rounded bg-black py-2 text-sm font-medium text-white disabled:opacity-50">
                     {saving ? 'Saving…' : 'Upload agreement'}
