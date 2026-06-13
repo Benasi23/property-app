@@ -92,12 +92,12 @@ export default function DashboardPage() {
   )
 
   const cards = [
-    { label: 'Projects', value: projectCount, tint: 'text-slate-900' },
-    { label: 'Available', value: stats.available, tint: 'text-emerald-600' },
-    { label: 'On Hold', value: stats.hold, tint: 'text-amber-600' },
-    { label: 'Reserved', value: stats.reserved, tint: 'text-orange-600' },
-    { label: 'Under Contract', value: stats.under_contract, tint: 'text-blue-600' },
-    { label: 'Sold', value: stats.sold, tint: 'text-slate-500' },
+    { label: 'Projects', value: projectCount, tint: 'text-slate-900', href: '/projects' },
+    { label: 'Available', value: stats.available, tint: 'text-emerald-600', href: '/properties' },
+    { label: 'On Hold', value: stats.hold, tint: 'text-amber-600', href: '/properties' },
+    { label: 'Reserved', value: stats.reserved, tint: 'text-orange-600', href: '/properties' },
+    { label: 'Under Contract', value: stats.under_contract, tint: 'text-blue-600', href: '/properties' },
+    { label: 'Sold', value: stats.sold, tint: 'text-slate-500', href: '/properties' },
   ]
 
   const statusBadge = (s: string) =>
@@ -113,10 +113,14 @@ export default function DashboardPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
             {cards.map((c) => (
-              <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <Link
+                key={c.label}
+                href={c.href}
+                className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md"
+              >
                 <p className="text-xs text-slate-400">{c.label}</p>
                 <p className={`mt-1 text-2xl font-bold ${c.tint}`}>{c.value}</p>
-              </div>
+              </Link>
             ))}
           </div>
 
