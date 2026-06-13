@@ -72,9 +72,19 @@ export default function PropertyDetailPage() {
   const [saving, setSaving] = useState(false)
   const [busy, setBusy] = useState(false)
 
+  // HQ: place on behalf of a group
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([])
+  const [selectedOrg, setSelectedOrg] = useState('')
+
   const load = useCallback(async () => {
     if (!propertyId) return
     const { data: p } = await supabase.from('properties').select('*').eq('id', propertyId).single()
+    const { data: orgData } = await supabase
+      .from('organisations')
+      .select('id, name, org_type')
+      .order('org_type', { ascending: false })
+      .order('name')
+    setOrgs((orgData ?? []).map((o) => ({ id: o.id, name: o.name })))
 
     // Show: this property's docs + general docs (no project/property) + this property's project docs
     const orParts = [
@@ -113,13 +123,21 @@ export default function PropertyDetailPage() {
   const claim = async (resType: 'hold' | 'reservation') => {
     if (!propertyId) return
     setBusy(true)
-    const { error } = await supabase.rpc('reserve_property', {
-      p_property_id: propertyId,
-      p_res_type: resType,
-    })
+    // HQ placing on behalf of a chosen group → reserve_property_for; otherwise own org.
+    const { error } =
+      isHq && selectedOrg
+        ? await supabase.rpc('reserve_property_for', {
+            p_property_id: propertyId,
+            p_org_id: selectedOrg,
+            p_res_type: resType,
+          })
+        : await supabase.rpc('reserve_property', {
+            p_property_id: propertyId,
+            p_res_type: resType,
+          })
     setBusy(false)
     if (error) toast.error(error.message)
-    else toast.success(resType === 'reservation' ? 'Lot reserved' : 'Lot held for your group')
+    else toast.success(resType === 'reservation' ? 'Lot reserved' : 'Lot held')
     load()
   }
 
@@ -202,21 +220,35 @@ export default function PropertyDetailPage() {
               </dl>
 
               {prop.status === 'available' ? (
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 space-y-2">
+                  {isHq && (
+                    <select
+                      value={selectedOrg}
+                      onChange={(e) => setSelectedOrg(e.target.value)}
+                      className="w-full rounded border px-3 py-2 text-sm"
+                    >
+                      <option value="">On behalf of… (choose group)</option>
+                      {orgs.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <div className="flex gap-2">
                   <button
                     onClick={() => claim('hold')}
-                    disabled={busy}
+                    disabled={busy || (isHq && !selectedOrg)}
                     className="flex-1 rounded bg-black py-2 text-sm font-medium text-white disabled:opacity-50"
                   >
                     Place hold
                   </button>
                   <button
                     onClick={() => claim('reservation')}
-                    disabled={busy}
+                    disabled={busy || (isHq && !selectedOrg)}
                     className="flex-1 rounded border border-black py-2 text-sm font-medium disabled:opacity-50"
                   >
                     Reserve
                   </button>
+                  </div>
                 </div>
               ) : heldByYou ? (
                 <p className="mt-4 text-sm font-medium text-amber-600">Held by your group</p>

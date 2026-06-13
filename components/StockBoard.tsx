@@ -57,34 +57,18 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
     return g
   }, [properties])
 
-  const releaseProperty = async (propertyId: string) => {
-    const { data } = await supabase
-      .from('reservations')
-      .select('id')
-      .eq('property_id', propertyId)
-      .eq('status', 'active')
-      .limit(1)
-    const rid = data?.[0]?.id
-    if (rid) return supabase.rpc('release_reservation', { p_reservation_id: rid })
-    return { error: null as null | { message: string } }
-  }
-
   const claimStates = ['hold', 'reserved', 'under_contract']
 
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
     if (from === to) return { ok: true }
 
-    // Move back to Available
+    // Move back to Available — clears the hold and frees the lot for everyone.
     if (to === 'available') {
-      if (from === 'sold') {
-        const { error } = await supabase.rpc('set_property_status', {
-          p_property_id: prop.id,
-          p_status: 'available',
-        })
-        return error ? { ok: false, msg: error.message } : { ok: true }
-      }
-      const { error } = await releaseProperty(prop.id)
+      const { error } = await supabase.rpc('set_property_status', {
+        p_property_id: prop.id,
+        p_status: 'available',
+      })
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
 
