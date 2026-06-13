@@ -51,6 +51,7 @@ export default function ReservationsPage() {
       supabase
         .from('reservations')
         .select('id, res_type, status, client_name, organisation_id, expires_at, created_at, properties(lot_number, estate, price)')
+        .in('status', ['active', 'pending'])
         .order('created_at', { ascending: false }),
       supabase.from('organisations').select('id, name, org_type').order('org_type', { ascending: false }).order('name'),
       supabase.from('properties').select('id, lot_number, estate').eq('status', 'available').order('estate'),

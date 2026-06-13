@@ -209,7 +209,7 @@ export default function ProjectDetailPage() {
           {properties.length === 0 ? (
             <p className="text-slate-500">No properties in this project yet.{isHq ? ' Use “+ Add property” to add one.' : ''}</p>
           ) : (
-            <StockBoard properties={properties} setProperties={setProperties} orgId={orgId} reload={load} />
+            <StockBoard properties={properties} setProperties={setProperties} orgId={orgId} reload={load} isHq={isHq} />
           )}
 
           {/* Videos — project-level only */}

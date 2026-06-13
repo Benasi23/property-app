@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import toast from 'react-hot-toast'
@@ -48,9 +48,23 @@ type Props = {
   setProperties: React.Dispatch<React.SetStateAction<Property[]>>
   orgId: string | null
   reload: () => void
+  isHq?: boolean
 }
 
-export default function StockBoard({ properties, setProperties, orgId, reload }: Props) {
+export default function StockBoard({ properties, setProperties, orgId, reload, isHq = false }: Props) {
+  const [orgNames, setOrgNames] = useState<Record<string, string>>({})
+
+  const loadOrgNames = useCallback(async () => {
+    if (!isHq) return
+    const { data } = await supabase.from('organisations').select('id, name')
+    setOrgNames(Object.fromEntries((data ?? []).map((o) => [o.id, o.name])))
+  }, [isHq])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadOrgNames()
+  }, [loadOrgNames])
+
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
       available: [], hold: [], reserved: [], under_contract: [], sold: [],
@@ -203,10 +217,16 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
                                   <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.land_size_sqm} m²</span>
                                 )}
                               </div>
-                              {heldByYou && p.status !== 'available' && (
-                                <p className="mt-2 text-[11px] font-medium text-amber-600">
-                                  Held by your group
-                                </p>
+                              {p.status !== 'available' && (
+                                isHq && p.held_by_org ? (
+                                  <p className="mt-2 text-[11px] font-medium text-slate-600">
+                                    {p.status === 'reserved' ? 'Reserved by' : 'Held by'}: {orgNames[p.held_by_org] ?? 'a group'}
+                                  </p>
+                                ) : heldByYou ? (
+                                  <p className="mt-2 text-[11px] font-medium text-amber-600">
+                                    Held by your group
+                                  </p>
+                                ) : null
                               )}
                               {p.status === 'hold' && (
                                 p.hold_expires_at ? (
