@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
+import Link from 'next/link'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
@@ -25,8 +26,17 @@ const COLUMNS = [
   { key: 'available', label: 'Available', dot: 'bg-emerald-500', head: 'text-emerald-700' },
   { key: 'hold', label: 'On Hold', dot: 'bg-amber-500', head: 'text-amber-700' },
   { key: 'reserved', label: 'Reserved', dot: 'bg-orange-500', head: 'text-orange-700' },
+  { key: 'under_contract', label: 'Under Contract', dot: 'bg-blue-500', head: 'text-blue-700' },
   { key: 'sold', label: 'Sold', dot: 'bg-slate-500', head: 'text-slate-700' },
 ] as const
+
+const LABELS: Record<string, string> = {
+  available: 'Available',
+  hold: 'On Hold',
+  reserved: 'Reserved',
+  under_contract: 'Under Contract',
+  sold: 'Sold',
+}
 
 const fmtPrice = (p: number | null) =>
   p != null ? `$${Number(p).toLocaleString()}` : 'POA'
@@ -40,7 +50,9 @@ type Props = {
 
 export default function StockBoard({ properties, setProperties, orgId, reload }: Props) {
   const grouped = useMemo(() => {
-    const g: Record<string, Property[]> = { available: [], hold: [], reserved: [], sold: [] }
+    const g: Record<string, Property[]> = {
+      available: [], hold: [], reserved: [], under_contract: [], sold: [],
+    }
     for (const p of properties) (g[p.status] ?? (g[p.status] = [])).push(p)
     return g
   }, [properties])
@@ -57,27 +69,53 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
     return { error: null as null | { message: string } }
   }
 
+  const claimStates = ['hold', 'reserved', 'under_contract']
+
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
     if (from === to) return { ok: true }
-    if (from === 'sold') return { ok: false, msg: 'Sold lots can’t be moved.' }
 
+    // Move back to Available
     if (to === 'available') {
+      if (from === 'sold') {
+        const { error } = await supabase.rpc('set_property_status', {
+          p_property_id: prop.id,
+          p_status: 'available',
+        })
+        return error ? { ok: false, msg: error.message } : { ok: true }
+      }
       const { error } = await releaseProperty(prop.id)
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
+
+    // Mark Sold
     if (to === 'sold') {
       const { error } = await supabase.rpc('mark_sold', { p_property_id: prop.id })
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
-    if (to === 'hold' || to === 'reserved') {
-      if (from !== 'available') {
-        const { error } = await releaseProperty(prop.id)
+
+    // Move into a claimed state: hold / reserved / under_contract
+    if (claimStates.includes(to)) {
+      if (from === 'available') {
+        // Atomic claim first (prevents two groups grabbing the same lot)
+        const { error } = await supabase.rpc('reserve_property', {
+          p_property_id: prop.id,
+          p_res_type: to === 'hold' ? 'hold' : 'reservation',
+        })
         if (error) return { ok: false, msg: error.message }
+        if (to === 'under_contract') {
+          const { error: e2 } = await supabase.rpc('set_property_status', {
+            p_property_id: prop.id,
+            p_status: 'under_contract',
+          })
+          if (e2) return { ok: false, msg: e2.message }
+        }
+        return { ok: true }
       }
-      const { error } = await supabase.rpc('reserve_property', {
+      // From another claimed/sold state — just change the status
+      const { error } = await supabase.rpc('set_property_status', {
         p_property_id: prop.id,
-        p_res_type: to === 'reserved' ? 'reservation' : 'hold',
+        p_status: to,
       })
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
@@ -101,14 +139,14 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
     if (!res.ok) toast.error(res.msg || 'Could not move that lot')
     else
       toast.success(
-        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : `Moved to ${to}`
+        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : `Moved to ${LABELS[to] ?? to}`
       )
     reload()
   }
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
           const items = grouped[col.key] ?? []
           return (
@@ -177,6 +215,12 @@ export default function StockBoard({ properties, setProperties, orgId, reload }:
                                   Held by your group
                                 </p>
                               )}
+                              <Link
+                                href={`/properties/${p.id}`}
+                                className="mt-2 block text-[11px] font-medium text-slate-400 hover:text-black"
+                              >
+                                View details &amp; documents →
+                              </Link>
                             </div>
                           )}
                         </Draggable>
