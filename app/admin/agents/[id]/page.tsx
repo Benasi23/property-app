@@ -66,6 +66,12 @@ export default function GroupDetailPage() {
 
   const [inviteEmails, setInviteEmails] = useState<string[]>([''])
   const [inviting, setInviting] = useState(false)
+  const [resendingId, setResendingId] = useState<string | null>(null)
+  const [confirmDelMemberId, setConfirmDelMemberId] = useState<string | null>(null)
+  const [deletingMemberId, setDeletingMemberId] = useState<string | null>(null)
+  const [editEmailId, setEditEmailId] = useState<string | null>(null)
+  const [newEmail, setNewEmail] = useState('')
+  const [savingEmail, setSavingEmail] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -193,6 +199,59 @@ export default function GroupDetailPage() {
     setInviting(false)
     if (ok > 0) toast.success(`${ok} invite${ok > 1 ? 's' : ''} sent`)
     setInviteEmails([''])
+    load()
+  }
+
+  const authedPost = async (url: string, body: object) => {
+    const { data: s } = await supabase.auth.getSession()
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${s.session?.access_token ?? ''}` },
+      body: JSON.stringify(body),
+    })
+    const json = await res.json().catch(() => ({}))
+    return { ok: res.ok, json }
+  }
+
+  const resendInvite = async (m: Member) => {
+    if (!orgId || !m.email) return
+    setResendingId(m.id)
+    const { ok, json } = await authedPost('/api/invite-user', { email: m.email, organisationId: orgId })
+    setResendingId(null)
+    if (!ok) return toast.error(json.error || 'Could not resend invite')
+    toast.success(`Invite re-sent to ${m.email}`)
+  }
+
+  const deleteMember = async (m: Member) => {
+    setDeletingMemberId(m.id)
+    const { ok, json } = await authedPost('/api/delete-user', { userId: m.id })
+    setDeletingMemberId(null)
+    setConfirmDelMemberId(null)
+    if (!ok) return toast.error(json.error || 'Could not remove user')
+    toast.success('User removed')
+    load()
+  }
+
+  const changeEmail = async (m: Member) => {
+    const email = newEmail.trim()
+    if (!orgId || !email) return
+    if (email.toLowerCase() === (m.email ?? '').toLowerCase()) {
+      setEditEmailId(null)
+      return
+    }
+    setSavingEmail(true)
+    // Deactivate the old login, then invite the new email (auto-sends the invite).
+    const del = await authedPost('/api/delete-user', { userId: m.id })
+    if (!del.ok) {
+      setSavingEmail(false)
+      return toast.error(del.json.error || 'Could not update email')
+    }
+    const inv = await authedPost('/api/invite-user', { email, organisationId: orgId })
+    setSavingEmail(false)
+    if (!inv.ok) return toast.error(inv.json.error || 'Old login removed, but inviting the new email failed')
+    toast.success(`Email updated — invite sent to ${email}`)
+    setEditEmailId(null)
+    setNewEmail('')
     load()
   }
 
@@ -416,11 +475,52 @@ export default function GroupDetailPage() {
                 {members.length === 0 ? (
                   <p className="text-sm text-slate-400">No users yet. Invite one or more below.</p>
                 ) : (
-                  <ul className="space-y-1.5 text-sm">
+                  <ul className="space-y-2 text-sm">
                     {members.map((m) => (
-                      <li key={m.id} className="flex justify-between">
-                        <span>{m.full_name || m.email}</span>
-                        <span className="capitalize text-slate-400">{m.role.replace('_', ' ')}</span>
+                      <li key={m.id} className="rounded-lg border border-slate-100 px-3 py-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="truncate font-medium">{m.full_name || m.email}</p>
+                            {m.full_name && m.email && <p className="truncate text-xs text-slate-400">{m.email}</p>}
+                          </div>
+                          <span className="shrink-0 text-xs capitalize text-slate-400">{m.role.replace('_', ' ')}</span>
+                        </div>
+
+                        {editEmailId === m.id ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                              type="email"
+                              value={newEmail}
+                              onChange={(e) => setNewEmail(e.target.value)}
+                              placeholder="new@email.com"
+                              className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                            />
+                            <button onClick={() => changeEmail(m)} disabled={savingEmail} className="rounded bg-black px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                              {savingEmail ? 'Saving…' : 'Save & invite'}
+                            </button>
+                            <button onClick={() => { setEditEmailId(null); setNewEmail('') }} className="text-xs text-slate-400 hover:text-black">Cancel</button>
+                          </div>
+                        ) : confirmDelMemberId === m.id ? (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-red-700">Remove this user?</span>
+                            <button onClick={() => deleteMember(m)} disabled={deletingMemberId === m.id} className="rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                              {deletingMemberId === m.id ? 'Removing…' : 'Yes, remove'}
+                            </button>
+                            <button onClick={() => setConfirmDelMemberId(null)} className="text-xs text-slate-400 hover:text-black">Cancel</button>
+                          </div>
+                        ) : (
+                          <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <button onClick={() => resendInvite(m)} disabled={resendingId === m.id} className="text-xs font-medium text-slate-500 hover:text-black disabled:opacity-50">
+                              {resendingId === m.id ? 'Sending…' : 'Resend invite'}
+                            </button>
+                            <button onClick={() => { setEditEmailId(m.id); setNewEmail(m.email ?? '') }} className="text-xs font-medium text-slate-500 hover:text-black">
+                              Change email
+                            </button>
+                            <button onClick={() => setConfirmDelMemberId(m.id)} className="text-xs font-medium text-red-600 hover:underline">
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

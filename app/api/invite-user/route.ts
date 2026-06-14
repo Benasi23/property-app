@@ -30,11 +30,36 @@ export async function POST(req: NextRequest) {
     }
 
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || ''
-    const { error } = await supabaseServer.auth.admin.inviteUserByEmail(email, {
-      data: { organisation_id: organisationId, role: 'agent' },
-      redirectTo: `${origin}/auth/set-password`,
-    })
-    if (error) return Response.json({ error: error.message }, { status: 400 })
+    const invite = () =>
+      supabaseServer.auth.admin.inviteUserByEmail(email, {
+        data: { organisation_id: organisationId, role: 'agent' },
+        redirectTo: `${origin}/auth/set-password`,
+      })
+
+    const { error } = await invite()
+
+    if (error) {
+      // Already invited before. If they never activated, re-send a fresh link by
+      // clearing the stale pending account and inviting again. If they're already
+      // active, tell HQ instead of silently failing.
+      if (/already|registered|exist/i.test(error.message)) {
+        const { data: list } = await supabaseServer.auth.admin.listUsers({ perPage: 1000 })
+        const existing = list?.users.find(
+          (u) => (u.email ?? '').toLowerCase() === email.toLowerCase()
+        )
+        if (existing && (existing.email_confirmed_at || existing.last_sign_in_at)) {
+          return Response.json(
+            { error: 'That user has already activated their account.' },
+            { status: 409 }
+          )
+        }
+        if (existing) await supabaseServer.auth.admin.deleteUser(existing.id)
+        const { error: reErr } = await invite()
+        if (reErr) return Response.json({ error: reErr.message }, { status: 400 })
+        return Response.json({ ok: true, resent: true })
+      }
+      return Response.json({ error: error.message }, { status: 400 })
+    }
 
     return Response.json({ ok: true })
   } catch (e) {
