@@ -80,6 +80,12 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const dragStart = useRef<{ x: number; y: number } | null>(null)
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
 
+  // Filters — keep the board usable as stock grows.
+  const [q, setQ] = useState('')
+  const [projectFilter, setProjectFilter] = useState('')
+  const [bedsFilter, setBedsFilter] = useState('')
+  const [projectNames, setProjectNames] = useState<Record<string, string>>({})
+
   // HQ-only quick edit
   const [editing, setEditing] = useState<Property | null>(null)
   const [savingEdit, setSavingEdit] = useState(false)
@@ -133,18 +139,48 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     setOrgNames(Object.fromEntries((data ?? []).map((o) => [o.id, o.name])))
   }, [isHq])
 
+  const loadProjects = useCallback(async () => {
+    const { data } = await supabase.from('projects').select('id, name')
+    setProjectNames(Object.fromEntries((data ?? []).map((p) => [p.id, p.name])))
+  }, [])
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrgNames()
-  }, [loadOrgNames])
+    loadProjects()
+  }, [loadOrgNames, loadProjects])
+
+  const projectOptions = useMemo(() => {
+    const ids = Array.from(new Set(properties.map((p) => p.project_id).filter(Boolean))) as string[]
+    return ids
+      .map((id) => ({ id, name: projectNames[id] ?? 'Project' }))
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [properties, projectNames])
+
+  const visible = useMemo(() => {
+    const needle = q.trim().toLowerCase()
+    const minBeds = bedsFilter ? Number(bedsFilter) : 0
+    return properties.filter((p) => {
+      if (projectFilter && p.project_id !== projectFilter) return false
+      if (minBeds && (p.bedrooms ?? 0) < minBeds) return false
+      if (needle) {
+        const hay = [p.lot_number, p.estate, p.address, p.house_design]
+          .filter(Boolean).join(' ').toLowerCase()
+        if (!hay.includes(needle)) return false
+      }
+      return true
+    })
+  }, [properties, q, projectFilter, bedsFilter])
 
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
       available: [], hold: [], reserved: [], under_contract: [], sold: [],
     }
-    for (const p of properties) (g[p.status] ?? (g[p.status] = [])).push(p)
+    for (const p of visible) (g[p.status] ?? (g[p.status] = [])).push(p)
     return g
-  }, [properties])
+  }, [visible])
+
+  const filtersOn = !!(q || projectFilter || bedsFilter)
 
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
@@ -231,6 +267,47 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         View-only access — you can browse stock and open documents, but reserving and moving stock is not enabled for your group. Contact Moneta HQ to request it.
       </div>
     )}
+    <div className="mb-4 flex flex-wrap items-center gap-2">
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search lot, estate or address…"
+        className="min-w-[200px] flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+      />
+      {projectOptions.length > 1 && (
+        <select
+          value={projectFilter}
+          onChange={(e) => setProjectFilter(e.target.value)}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        >
+          <option value="">All projects</option>
+          {projectOptions.map((o) => (
+            <option key={o.id} value={o.id}>{o.name}</option>
+          ))}
+        </select>
+      )}
+      <select
+        value={bedsFilter}
+        onChange={(e) => setBedsFilter(e.target.value)}
+        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+      >
+        <option value="">Any beds</option>
+        <option value="1">1+ beds</option>
+        <option value="2">2+ beds</option>
+        <option value="3">3+ beds</option>
+        <option value="4">4+ beds</option>
+        <option value="5">5+ beds</option>
+      </select>
+      {filtersOn && (
+        <button
+          type="button"
+          onClick={() => { setQ(''); setProjectFilter(''); setBedsFilter('') }}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-black"
+        >
+          Clear
+        </button>
+      )}
+    </div>
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
@@ -255,7 +332,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                     </span>
                   </div>
 
-                  <div className="flex min-h-[120px] flex-col gap-3">
+                  <div className="flex max-h-[62vh] min-h-[120px] flex-col gap-3 overflow-y-auto pr-1">
                     {items.map((p, index) => {
                       const heldByYou = p.held_by_org && p.held_by_org === orgId
                       return (
