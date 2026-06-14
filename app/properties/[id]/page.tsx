@@ -48,7 +48,6 @@ type Doc = {
 // Display sections, top → bottom. groupUpload sections let selling groups upload.
 type Section = { key: string; label: string; types: string[]; groupUpload?: { docType: string; cta: string } }
 const SECTIONS: Section[] = [
-  { key: 'template', label: 'Property Template', types: ['template'] },
   { key: 'marketing', label: 'Marketing Material', types: ['marketing', 'brochure'] },
   { key: 'rental_letter', label: 'Rental Letter', types: ['rental_letter'] },
   { key: 'eoi', label: 'Expression of Interest', types: ['eoi'], groupUpload: { docType: 'eoi', cta: 'Upload your EOI' } },
@@ -64,6 +63,9 @@ const STATUS_STYLE: Record<string, string> = {
   sold: 'bg-slate-200 text-slate-700',
 }
 
+const isImageUrl = (u: string) => /\.(png|jpe?g|webp|gif|avif)(\?|$)/i.test(u)
+const isPdfUrl = (u: string) => /\.pdf(\?|$)/i.test(u)
+
 const money = (n: number | null) => (n != null ? `$${Number(n).toLocaleString()}` : 'POA')
 
 export default function PropertyDetailPage() {
@@ -75,6 +77,7 @@ export default function PropertyDetailPage() {
 
   const [prop, setProp] = useState<Property | null>(null)
   const [holder, setHolder] = useState<{ full_name: string | null; phone: string | null; email: string | null } | null>(null)
+  const [tplBusy, setTplBusy] = useState(false)
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -301,6 +304,23 @@ export default function PropertyDetailPage() {
     load()
   }
 
+  const templateDoc = (docsByType['template'] ?? [])[0] ?? null
+
+  const uploadTemplate = async (file: File) => {
+    if (!propertyId) return
+    setTplBusy(true)
+    const { url, error: upErr } = await uploadToDocuments(file, propertyId)
+    if (upErr) { setTplBusy(false); return toast.error(upErr.message) }
+    const { error } = await supabase.from('documents').insert({
+      title: file.name, doc_type: 'template', storage_path: url,
+      property_id: propertyId, is_public_to_groups: true,
+    })
+    setTplBusy(false)
+    if (error) return toast.error(error.message)
+    toast.success('Property template uploaded')
+    load()
+  }
+
   const heldByYou = prop?.held_by_org && prop.held_by_org === orgId
   const location = prop ? [prop.estate, prop.address].filter(Boolean).join(' · ') : ''
 
@@ -331,6 +351,33 @@ export default function PropertyDetailPage() {
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* LEFT: property summary + actions */}
           <div className="space-y-4">
+            {(isHq || templateDoc) && (
+              <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                <h2 className="mb-2 text-sm font-semibold">Property Template</h2>
+                {templateDoc?.storage_path && isImageUrl(templateDoc.storage_path) ? (
+                  <a href={templateDoc.storage_path} target="_blank" rel="noopener noreferrer" className="block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={templateDoc.storage_path} alt="Property template" className="w-full rounded-lg border border-slate-200" />
+                  </a>
+                ) : templateDoc?.storage_path && isPdfUrl(templateDoc.storage_path) ? (
+                  <iframe src={templateDoc.storage_path} title="Property template" className="h-[480px] w-full rounded-lg border border-slate-200" />
+                ) : templateDoc?.storage_path ? (
+                  <a href={templateDoc.storage_path} target="_blank" rel="noopener noreferrer" className="text-sm text-slate-600 underline">Open template</a>
+                ) : (
+                  <p className="text-xs text-slate-400">No template uploaded yet.</p>
+                )}
+                {isHq && (
+                  <div className="mt-2 space-y-2">
+                    <Dropzone onFile={uploadTemplate} accept="image/*,application/pdf" busy={tplBusy} selectedName={undefined} label={templateDoc ? 'Replace template (A4)' : 'Upload property template (A4)'} hint="PNG, JPG or PDF" />
+                    {templateDoc && (
+                      <button onClick={() => deleteDoc(templateDoc.id)} disabled={deletingDocId === templateDoc.id} className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50">
+                        {deletingDocId === templateDoc.id ? 'Deleting…' : 'Delete template'}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-2xl font-bold">{money(prop.price)}</span>
