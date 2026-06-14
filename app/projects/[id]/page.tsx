@@ -113,6 +113,8 @@ export default function ProjectDetailPage() {
   const addProperty = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!projectId || !project) return
+    if (!form.property_type) return toast.error('Please choose a property type')
+    if (!form.location) return toast.error('Please choose a location')
     setSaving(true)
     const { error } = await supabase.from('properties').insert({
       project_id: projectId,
@@ -256,11 +258,11 @@ export default function ProjectDetailPage() {
                 <input value={form.bathrooms} onChange={set('bathrooms')} placeholder="Baths" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.car_spaces} onChange={set('car_spaces')} placeholder="Cars" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <select value={form.property_type} onChange={(e) => setForm((f) => ({ ...f, property_type: e.target.value }))} className="rounded border px-3 py-2 text-sm">
-                  <option value="">Property type…</option>
+                  <option value="">Property type… *</option>
                   {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
                 <select value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="rounded border px-3 py-2 text-sm">
-                  <option value="">Location…</option>
+                  <option value="">Location… *</option>
                   {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
                 </select>
                 <input value={form.address} onChange={set('address')} placeholder="Address" className="rounded border px-3 py-2 text-sm" />
