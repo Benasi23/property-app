@@ -192,10 +192,12 @@ export default function GroupDetailPage() {
 
   const sendInvites = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!orgId) return
-    const rows = inviteRows.filter((r) => r.email.trim())
-    if (rows.length === 0) return toast.error('Add at least one email')
-    if (rows.some((r) => !r.name.trim())) return toast.error('Each user needs a name')
+    if (!orgId) return toast.error('This user must be attached to a selling group first')
+    // A row counts as "started" if any field is filled; every started row must be complete.
+    const rows = inviteRows.filter((r) => r.name.trim() || r.email.trim() || r.phone.trim())
+    if (rows.length === 0) return toast.error('Add at least one user')
+    if (rows.some((r) => !r.name.trim() || !r.email.trim() || !r.phone.trim()))
+      return toast.error('Name, mobile and email are required for every user')
     setInviting(true)
     const { data: s } = await supabase.auth.getSession()
     const token = s.session?.access_token ?? ''
@@ -290,7 +292,7 @@ export default function GroupDetailPage() {
   }
 
   const saveProfile = async (m: Member) => {
-    if (!pName.trim()) return toast.error('Name is required')
+    if (!pName.trim() || !pPhone.trim()) return toast.error('Name and mobile are both required')
     setSavingProfile(true)
     const { error } = await supabase
       .from('profiles')
@@ -643,28 +645,29 @@ export default function GroupDetailPage() {
                 )}
 
                 <form onSubmit={sendInvites} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invite users</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invite users to {org.name}</p>
+                  <p className="text-xs text-slate-400">Name, mobile and email are all required. Each user is added to this selling group.</p>
                   {inviteRows.map((r, i) => (
                     <div key={i} className="flex flex-wrap items-start gap-2">
                       <input
                         type="text"
                         value={r.name}
                         onChange={(e) => setRowAt(i, 'name', e.target.value)}
-                        placeholder="Full name"
+                        placeholder="Full name *"
                         className="min-w-[120px] flex-1 rounded border px-3 py-2 text-sm"
                       />
                       <input
                         type="email"
                         value={r.email}
                         onChange={(e) => setRowAt(i, 'email', e.target.value)}
-                        placeholder="user@example.com"
+                        placeholder="Email *"
                         className="min-w-[160px] flex-1 rounded border px-3 py-2 text-sm"
                       />
                       <input
                         type="tel"
                         value={r.phone}
                         onChange={(e) => setRowAt(i, 'phone', e.target.value)}
-                        placeholder="Mobile"
+                        placeholder="Mobile *"
                         className="min-w-[110px] flex-1 rounded border px-3 py-2 text-sm"
                       />
                       {inviteRows.length > 1 && (
