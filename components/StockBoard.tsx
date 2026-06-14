@@ -335,6 +335,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         <option value="-750000">$750,000 and under</option>
         <option value="750001-900000">$750,000 – $900,000</option>
         <option value="900001-1000000">$900,000 – $1,000,000</option>
+        <option value="1000001-">Above $1,000,000</option>
         <option value="1000001-1200000">$1,000,000 – $1,200,000</option>
         <option value="1200001-">$1,200,000 +</option>
       </select>
