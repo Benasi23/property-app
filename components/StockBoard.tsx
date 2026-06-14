@@ -1,7 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
@@ -56,6 +57,8 @@ const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v))
 
 export default function StockBoard({ properties, setProperties, orgId, reload, isHq = false, canReserve = true }: Props) {
   const readOnly = !isHq && !canReserve
+  const router = useRouter()
+  const dragStart = useRef<{ x: number; y: number } | null>(null)
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
 
   // HQ-only quick edit
@@ -243,7 +246,14 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                               ref={dp.innerRef}
                               {...dp.draggableProps}
                               {...dp.dragHandleProps}
-                              className={`rounded-lg border bg-white p-3 shadow-sm transition-shadow ${
+                              onPointerDown={(e) => { dragStart.current = { x: e.clientX, y: e.clientY } }}
+                              onClick={(e) => {
+                                const s = dragStart.current
+                                // Ignore the click that ends a drag (pointer moved).
+                                if (s && Math.hypot(e.clientX - s.x, e.clientY - s.y) > 6) return
+                                router.push(`/properties/${p.id}`)
+                              }}
+                              className={`cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow ${
                                 ds.isDragging ? 'shadow-lg ring-2 ring-black/10' : 'hover:shadow'
                               }`}
                             >
