@@ -84,6 +84,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const [q, setQ] = useState('')
   const [projectFilter, setProjectFilter] = useState('')
   const [bedsFilter, setBedsFilter] = useState('')
+  const [priceFilter, setPriceFilter] = useState('')
   const [projectNames, setProjectNames] = useState<Record<string, string>>({})
 
   // HQ-only quick edit
@@ -160,9 +161,17 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase()
     const minBeds = bedsFilter ? Number(bedsFilter) : 0
+    const [loStr, hiStr] = priceFilter ? priceFilter.split('-') : ['', '']
+    const lo = loStr ? Number(loStr) : null
+    const hi = hiStr ? Number(hiStr) : null
     return properties.filter((p) => {
       if (projectFilter && p.project_id !== projectFilter) return false
       if (minBeds && (p.bedrooms ?? 0) < minBeds) return false
+      if (priceFilter) {
+        if (p.price == null) return false
+        if (lo != null && p.price < lo) return false
+        if (hi != null && p.price >= hi) return false
+      }
       if (needle) {
         const hay = [p.lot_number, p.estate, p.address, p.house_design]
           .filter(Boolean).join(' ').toLowerCase()
@@ -170,7 +179,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       }
       return true
     })
-  }, [properties, q, projectFilter, bedsFilter])
+  }, [properties, q, projectFilter, bedsFilter, priceFilter])
 
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
@@ -180,7 +189,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     return g
   }, [visible])
 
-  const filtersOn = !!(q || projectFilter || bedsFilter)
+  const filtersOn = !!(q || projectFilter || bedsFilter || priceFilter)
 
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
@@ -298,10 +307,23 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         <option value="4">4+ beds</option>
         <option value="5">5+ beds</option>
       </select>
+      <select
+        value={priceFilter}
+        onChange={(e) => setPriceFilter(e.target.value)}
+        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+      >
+        <option value="">Any price</option>
+        <option value="-500000">Under $500k</option>
+        <option value="500000-750000">$500k – $750k</option>
+        <option value="750000-1000000">$750k – $1M</option>
+        <option value="1000000-1500000">$1M – $1.5M</option>
+        <option value="1500000-2000000">$1.5M – $2M</option>
+        <option value="2000000-">$2M+</option>
+      </select>
       {filtersOn && (
         <button
           type="button"
-          onClick={() => { setQ(''); setProjectFilter(''); setBedsFilter('') }}
+          onClick={() => { setQ(''); setProjectFilter(''); setBedsFilter(''); setPriceFilter('') }}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-black"
         >
           Clear
