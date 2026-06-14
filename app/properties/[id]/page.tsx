@@ -338,7 +338,7 @@ export default function PropertyDetailPage() {
               <dl className="space-y-1.5 text-sm">
                 {prop.property_type && <Row k="Type" v={prop.property_type} />}
                 {prop.location && <Row k="Location" v={prop.location} />}
-                {prop.house_design && <Row k="Design" v={prop.house_design} />}
+                {prop.house_design && <Row k="Builder" v={prop.house_design} />}
                 {prop.bedrooms != null && <Row k="Bedrooms" v={String(prop.bedrooms)} />}
                 {prop.bathrooms != null && <Row k="Bathrooms" v={String(prop.bathrooms)} />}
                 {prop.car_spaces != null && <Row k="Car spaces" v={String(prop.car_spaces)} />}
@@ -430,7 +430,7 @@ export default function PropertyDetailPage() {
                       <label className="text-xs text-slate-500">Lot number
                         <input value={editForm.lot_number} onChange={setEF('lot_number')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
                       </label>
-                      <label className="text-xs text-slate-500">House design
+                      <label className="text-xs text-slate-500">Builder
                         <input value={editForm.house_design} onChange={setEF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
                       </label>
                       <label className="text-xs text-slate-500">Property type

@@ -251,7 +251,7 @@ export default function ProjectDetailPage() {
               <p className="mb-3 text-sm font-semibold">Add a property to {project?.name}</p>
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <input value={form.lot_number} onChange={set('lot_number')} placeholder="Lot number" className="rounded border px-3 py-2 text-sm" />
-                <input value={form.house_design} onChange={set('house_design')} placeholder="House design" className="rounded border px-3 py-2 text-sm" />
+                <input value={form.house_design} onChange={set('house_design')} placeholder="Builder" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.price} onChange={set('price')} placeholder="Price" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.land_size_sqm} onChange={set('land_size_sqm')} placeholder="Land m²" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.bedrooms} onChange={set('bedrooms')} placeholder="Beds" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />

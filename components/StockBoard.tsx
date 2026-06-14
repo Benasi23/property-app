@@ -485,7 +485,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
             <label className="text-xs text-slate-500">Lot number
               <input value={form.lot_number} onChange={setF('lot_number')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
             </label>
-            <label className="text-xs text-slate-500">House design
+            <label className="text-xs text-slate-500">Builder
               <input value={form.house_design} onChange={setF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
             </label>
             <label className="text-xs text-slate-500">Property type
