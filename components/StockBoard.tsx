@@ -44,6 +44,25 @@ const LABELS: Record<string, string> = {
 const fmtPrice = (p: number | null) =>
   p != null ? `$${Number(p).toLocaleString()}` : 'POA'
 
+const SpecIcon = ({ d }: { d: string }) => (
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-slate-500">
+    {d.split('||').map((p, i) => <path key={i} d={p} />)}
+  </svg>
+)
+const ICON = {
+  bed: 'M2 4v16||M2 8h18a2 2 0 0 1 2 2v10||M2 17h20||M6 8v9',
+  bath: 'M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.7 3 4 3.7 4 4.5V17a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3||M4 12h18||M7 19v2||M17 19v2',
+  car: 'M5 13l1.5-4.5A2 2 0 0 1 8.4 7h7.2a2 2 0 0 1 1.9 1.5L19 13||M5 13h14a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1z||M7 18v1.5||M17 18v1.5',
+  land: 'M3 6l9-4 9 4-9 4-9-4z||M3 6v12l9 4 9-4V6',
+} as const
+
+const Spec = ({ icon, value }: { icon: keyof typeof ICON; value: React.ReactNode }) => (
+  <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-1.5 py-0.5">
+    <SpecIcon d={ICON[icon]} />
+    {value}
+  </span>
+)
+
 type Props = {
   properties: Property[]
   setProperties: React.Dispatch<React.SetStateAction<Property[]>>
@@ -271,18 +290,10 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                                 {p.house_design && (
                                   <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.house_design}</span>
                                 )}
-                                {p.bedrooms != null && (
-                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.bedrooms} bed</span>
-                                )}
-                                {p.bathrooms != null && (
-                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.bathrooms} bath</span>
-                                )}
-                                {p.car_spaces != null && (
-                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.car_spaces} car</span>
-                                )}
-                                {p.land_size_sqm != null && (
-                                  <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.land_size_sqm} m²</span>
-                                )}
+                                {p.bedrooms != null && <Spec icon="bed" value={p.bedrooms} />}
+                                {p.bathrooms != null && <Spec icon="bath" value={p.bathrooms} />}
+                                {p.car_spaces != null && <Spec icon="car" value={p.car_spaces} />}
+                                {p.land_size_sqm != null && <Spec icon="land" value={`${p.land_size_sqm} m²`} />}
                               </div>
                               {p.status !== 'available' && (
                                 isHq && p.held_by_org ? (
