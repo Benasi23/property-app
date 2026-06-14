@@ -24,7 +24,7 @@ export default function GroupPropertiesPage() {
       supabase.from('organisations').select('name').eq('id', orgId).single(),
       supabase
         .from('properties')
-        .select('id, lot_number, estate, address, land_size_sqm, house_design, bedrooms, bathrooms, car_spaces, price, status, held_by_org, hold_expires_at, project_id, property_type, location')
+        .select('id, lot_number, estate, address, land_size_sqm, house_design, bedrooms, bathrooms, car_spaces, price, status, held_by_org, hold_expires_at, project_id, property_type, location, region')
         .eq('held_by_org', orgId)
         .order('status')
         .order('estate'),

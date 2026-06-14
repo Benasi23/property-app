@@ -25,10 +25,16 @@ export type Property = {
   project_id?: string | null
   property_type?: string | null
   location?: string | null
+  region?: string | null
 }
 
 export const PROPERTY_TYPES = ['House and Land', 'Duplex', 'Dual Occupancy', 'Terrace', 'Townhouse'] as const
 export const LOCATIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const
+
+// Sub-regions shown once a state is chosen. Add other states' regions here over time.
+export const REGIONS: Record<string, string[]> = {
+  QLD: ['Brisbane', 'Gold Coast', 'Sunshine Coast', 'Darling Downs', 'Wide Bay', 'Fraser Coast', 'North Queensland'],
+}
 
 const COLUMNS = [
   { key: 'available', label: 'Available', dot: 'bg-emerald-500', head: 'text-emerald-700' },
@@ -90,6 +96,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const [projectFilter, setProjectFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [locationFilter, setLocationFilter] = useState('')
+  const [regionFilter, setRegionFilter] = useState('')
   const [priceFilter, setPriceFilter] = useState('')
   const [projectNames, setProjectNames] = useState<Record<string, string>>({})
 
@@ -99,7 +106,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const [form, setForm] = useState({
     lot_number: '', house_design: '', address: '', price: '',
     bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '',
-    property_type: '', location: '',
+    property_type: '', location: '', region: '',
   })
 
   const openEdit = (p: Property) => {
@@ -114,6 +121,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       land_size_sqm: p.land_size_sqm?.toString() ?? '',
       property_type: p.property_type ?? '',
       location: p.location ?? '',
+      region: p.region ?? '',
     })
     setEditing(p)
   }
@@ -136,6 +144,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         land_size_sqm: numOrNull(form.land_size_sqm),
         property_type: form.property_type || null,
         location: form.location || null,
+        region: form.region || null,
       })
       .eq('id', editing.id)
     setSavingEdit(false)
@@ -178,6 +187,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       if (projectFilter && p.project_id !== projectFilter) return false
       if (typeFilter && p.property_type !== typeFilter) return false
       if (locationFilter && p.location !== locationFilter) return false
+      if (regionFilter && p.region !== regionFilter) return false
       if (priceFilter) {
         if (p.price == null) return false
         if (lo != null && p.price < lo) return false
@@ -190,7 +200,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       }
       return true
     })
-  }, [properties, q, projectFilter, typeFilter, locationFilter, priceFilter])
+  }, [properties, q, projectFilter, typeFilter, locationFilter, regionFilter, priceFilter])
 
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
@@ -200,7 +210,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     return g
   }, [visible])
 
-  const filtersOn = !!(q || projectFilter || typeFilter || locationFilter || priceFilter)
+  const filtersOn = !!(q || projectFilter || typeFilter || locationFilter || regionFilter || priceFilter)
 
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
@@ -318,7 +328,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       </select>
       <select
         value={locationFilter}
-        onChange={(e) => setLocationFilter(e.target.value)}
+        onChange={(e) => { setLocationFilter(e.target.value); setRegionFilter('') }}
         className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
       >
         <option value="">Any location</option>
@@ -326,6 +336,18 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
           <option key={l} value={l}>{l}</option>
         ))}
       </select>
+      {REGIONS[locationFilter] && (
+        <select
+          value={regionFilter}
+          onChange={(e) => setRegionFilter(e.target.value)}
+          className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+        >
+          <option value="">Any region</option>
+          {REGIONS[locationFilter].map((r) => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
+      )}
       <select
         value={priceFilter}
         onChange={(e) => setPriceFilter(e.target.value)}
@@ -342,7 +364,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       {filtersOn && (
         <button
           type="button"
-          onClick={() => { setQ(''); setProjectFilter(''); setTypeFilter(''); setLocationFilter(''); setPriceFilter('') }}
+          onClick={() => { setQ(''); setProjectFilter(''); setTypeFilter(''); setLocationFilter(''); setRegionFilter(''); setPriceFilter('') }}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-black"
         >
           Clear
@@ -401,7 +423,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                                 <span className="text-sm font-semibold">{fmtPrice(p.price)}</span>
                               </div>
                               <p className="text-xs text-slate-500">
-                                {p.estate}{p.location ? ` · ${p.location}` : ''}
+                                {p.estate}{p.location ? ` · ${p.location}` : ''}{p.region ? ` · ${p.region}` : ''}
                               </p>
                               {p.address && (
                                 <p className="mt-0.5 text-xs text-slate-400">{p.address}</p>
@@ -495,11 +517,19 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
               </select>
             </label>
             <label className="text-xs text-slate-500">Location
-              <select value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900">
+              <select value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value, region: '' }))} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900">
                 <option value="">—</option>
                 {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
               </select>
             </label>
+            {REGIONS[form.location] && (
+              <label className="text-xs text-slate-500">Region
+                <select value={form.region} onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900">
+                  <option value="">—</option>
+                  {REGIONS[form.location].map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </label>
+            )}
             <label className="col-span-2 text-xs text-slate-500">Address
               <input value={form.address} onChange={setF('address')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
             </label>
