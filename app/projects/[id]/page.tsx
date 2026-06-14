@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
-import StockBoard, { Property } from '@/components/StockBoard'
+import StockBoard, { Property, PROPERTY_TYPES, LOCATIONS } from '@/components/StockBoard'
 import VisibilityMenu from '@/components/VisibilityMenu'
 import Dropzone from '@/components/Dropzone'
 
@@ -53,6 +53,7 @@ export default function ProjectDetailPage() {
   const [form, setForm] = useState({
     lot_number: '', house_design: '', price: '', bedrooms: '',
     bathrooms: '', car_spaces: '', land_size_sqm: '', address: '',
+    property_type: '', location: '',
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -124,12 +125,14 @@ export default function ProjectDetailPage() {
       bathrooms: num(form.bathrooms),
       car_spaces: num(form.car_spaces),
       land_size_sqm: num(form.land_size_sqm),
+      property_type: form.property_type || null,
+      location: form.location || ((LOCATIONS as readonly string[]).includes(project.state ?? '') ? project.state : null),
       status: 'available',
     })
     setSaving(false)
     if (error) return toast.error(error.message)
     toast.success('Property added')
-    setForm({ lot_number: '', house_design: '', price: '', bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '', address: '' })
+    setForm({ lot_number: '', house_design: '', price: '', bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '', address: '', property_type: '', location: '' })
     setShowAdd(false)
     load()
   }
@@ -252,6 +255,14 @@ export default function ProjectDetailPage() {
                 <input value={form.bedrooms} onChange={set('bedrooms')} placeholder="Beds" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.bathrooms} onChange={set('bathrooms')} placeholder="Baths" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
                 <input value={form.car_spaces} onChange={set('car_spaces')} placeholder="Cars" inputMode="numeric" className="rounded border px-3 py-2 text-sm" />
+                <select value={form.property_type} onChange={(e) => setForm((f) => ({ ...f, property_type: e.target.value }))} className="rounded border px-3 py-2 text-sm">
+                  <option value="">Property type…</option>
+                  {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="rounded border px-3 py-2 text-sm">
+                  <option value="">Location…</option>
+                  {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+                </select>
                 <input value={form.address} onChange={set('address')} placeholder="Address" className="rounded border px-3 py-2 text-sm" />
               </div>
               <button type="submit" disabled={saving} className="mt-3 rounded bg-black px-5 py-2 text-sm font-medium text-white disabled:opacity-50">

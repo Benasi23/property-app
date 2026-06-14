@@ -11,6 +11,7 @@ import AppShell from '@/components/AppShell'
 import VisibilityMenu from '@/components/VisibilityMenu'
 import Countdown from '@/components/Countdown'
 import Dropzone from '@/components/Dropzone'
+import { PROPERTY_TYPES, LOCATIONS } from '@/components/StockBoard'
 
 type Property = {
   id: string
@@ -23,6 +24,8 @@ type Property = {
   bathrooms: number | null
   car_spaces: number | null
   price: number | null
+  property_type: string | null
+  location: string | null
   status: string
   held_by_org: string | null
   held_by_user: string | null
@@ -97,6 +100,7 @@ export default function PropertyDetailPage() {
   const [editForm, setEditForm] = useState({
     lot_number: '', house_design: '', address: '', price: '',
     bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '',
+    property_type: '', location: '',
   })
   const setEF = (k: keyof typeof editForm) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setEditForm((f) => ({ ...f, [k]: e.target.value }))
@@ -113,6 +117,8 @@ export default function PropertyDetailPage() {
       bathrooms: prop.bathrooms?.toString() ?? '',
       car_spaces: prop.car_spaces?.toString() ?? '',
       land_size_sqm: prop.land_size_sqm?.toString() ?? '',
+      property_type: prop.property_type ?? '',
+      location: prop.location ?? '',
     })
     setShowEdit(true)
   }
@@ -131,6 +137,8 @@ export default function PropertyDetailPage() {
         bathrooms: editNum(editForm.bathrooms),
         car_spaces: editNum(editForm.car_spaces),
         land_size_sqm: editNum(editForm.land_size_sqm),
+        property_type: editForm.property_type || null,
+        location: editForm.location || null,
       })
       .eq('id', propertyId)
     setSavingEdit(false)
@@ -328,6 +336,8 @@ export default function PropertyDetailPage() {
                 </span>
               </div>
               <dl className="space-y-1.5 text-sm">
+                {prop.property_type && <Row k="Type" v={prop.property_type} />}
+                {prop.location && <Row k="Location" v={prop.location} />}
                 {prop.house_design && <Row k="Design" v={prop.house_design} />}
                 {prop.bedrooms != null && <Row k="Bedrooms" v={String(prop.bedrooms)} />}
                 {prop.bathrooms != null && <Row k="Bathrooms" v={String(prop.bathrooms)} />}
@@ -422,6 +432,18 @@ export default function PropertyDetailPage() {
                       </label>
                       <label className="text-xs text-slate-500">House design
                         <input value={editForm.house_design} onChange={setEF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+                      </label>
+                      <label className="text-xs text-slate-500">Property type
+                        <select value={editForm.property_type} onChange={(e) => setEditForm((f) => ({ ...f, property_type: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm">
+                          <option value="">—</option>
+                          {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                      </label>
+                      <label className="text-xs text-slate-500">Location
+                        <select value={editForm.location} onChange={(e) => setEditForm((f) => ({ ...f, location: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm">
+                          <option value="">—</option>
+                          {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+                        </select>
                       </label>
                       <label className="col-span-2 text-xs text-slate-500">Address
                         <input value={editForm.address} onChange={setEF('address')} className="mt-1 w-full rounded border px-3 py-2 text-sm" />

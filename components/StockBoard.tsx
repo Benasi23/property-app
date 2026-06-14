@@ -23,7 +23,12 @@ export type Property = {
   held_by_org: string | null
   hold_expires_at?: string | null
   project_id?: string | null
+  property_type?: string | null
+  location?: string | null
 }
+
+export const PROPERTY_TYPES = ['House and Land', 'Duplex', 'Dual Occupancy', 'Terrace', 'Townhouse'] as const
+export const LOCATIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] as const
 
 const COLUMNS = [
   { key: 'available', label: 'Available', dot: 'bg-emerald-500', head: 'text-emerald-700' },
@@ -83,7 +88,8 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   // Filters — keep the board usable as stock grows.
   const [q, setQ] = useState('')
   const [projectFilter, setProjectFilter] = useState('')
-  const [bedsFilter, setBedsFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
+  const [locationFilter, setLocationFilter] = useState('')
   const [priceFilter, setPriceFilter] = useState('')
   const [projectNames, setProjectNames] = useState<Record<string, string>>({})
 
@@ -93,6 +99,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
   const [form, setForm] = useState({
     lot_number: '', house_design: '', address: '', price: '',
     bedrooms: '', bathrooms: '', car_spaces: '', land_size_sqm: '',
+    property_type: '', location: '',
   })
 
   const openEdit = (p: Property) => {
@@ -105,6 +112,8 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       bathrooms: p.bathrooms?.toString() ?? '',
       car_spaces: p.car_spaces?.toString() ?? '',
       land_size_sqm: p.land_size_sqm?.toString() ?? '',
+      property_type: p.property_type ?? '',
+      location: p.location ?? '',
     })
     setEditing(p)
   }
@@ -125,6 +134,8 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         bathrooms: numOrNull(form.bathrooms),
         car_spaces: numOrNull(form.car_spaces),
         land_size_sqm: numOrNull(form.land_size_sqm),
+        property_type: form.property_type || null,
+        location: form.location || null,
       })
       .eq('id', editing.id)
     setSavingEdit(false)
@@ -160,17 +171,17 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase()
-    const minBeds = bedsFilter ? Number(bedsFilter) : 0
     const [loStr, hiStr] = priceFilter ? priceFilter.split('-') : ['', '']
     const lo = loStr ? Number(loStr) : null
     const hi = hiStr ? Number(hiStr) : null
     return properties.filter((p) => {
       if (projectFilter && p.project_id !== projectFilter) return false
-      if (minBeds && (p.bedrooms ?? 0) < minBeds) return false
+      if (typeFilter && p.property_type !== typeFilter) return false
+      if (locationFilter && p.location !== locationFilter) return false
       if (priceFilter) {
         if (p.price == null) return false
         if (lo != null && p.price < lo) return false
-        if (hi != null && p.price >= hi) return false
+        if (hi != null && p.price > hi) return false
       }
       if (needle) {
         const hay = [p.lot_number, p.estate, p.address, p.house_design]
@@ -179,7 +190,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       }
       return true
     })
-  }, [properties, q, projectFilter, bedsFilter, priceFilter])
+  }, [properties, q, projectFilter, typeFilter, locationFilter, priceFilter])
 
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
@@ -189,7 +200,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     return g
   }, [visible])
 
-  const filtersOn = !!(q || projectFilter || bedsFilter || priceFilter)
+  const filtersOn = !!(q || projectFilter || typeFilter || locationFilter || priceFilter)
 
   const applyTransition = async (prop: Property, to: string) => {
     const from = prop.status
@@ -296,16 +307,24 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         </select>
       )}
       <select
-        value={bedsFilter}
-        onChange={(e) => setBedsFilter(e.target.value)}
+        value={typeFilter}
+        onChange={(e) => setTypeFilter(e.target.value)}
         className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
       >
-        <option value="">Any beds</option>
-        <option value="1">1+ beds</option>
-        <option value="2">2+ beds</option>
-        <option value="3">3+ beds</option>
-        <option value="4">4+ beds</option>
-        <option value="5">5+ beds</option>
+        <option value="">Any type</option>
+        {PROPERTY_TYPES.map((t) => (
+          <option key={t} value={t}>{t}</option>
+        ))}
+      </select>
+      <select
+        value={locationFilter}
+        onChange={(e) => setLocationFilter(e.target.value)}
+        className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
+      >
+        <option value="">Any location</option>
+        {LOCATIONS.map((l) => (
+          <option key={l} value={l}>{l}</option>
+        ))}
       </select>
       <select
         value={priceFilter}
@@ -313,17 +332,16 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         className="rounded-lg border border-slate-200 px-3 py-2 text-sm"
       >
         <option value="">Any price</option>
-        <option value="-500000">Under $500k</option>
-        <option value="500000-750000">$500k – $750k</option>
-        <option value="750000-1000000">$750k – $1M</option>
-        <option value="1000000-1500000">$1M – $1.5M</option>
-        <option value="1500000-2000000">$1.5M – $2M</option>
-        <option value="2000000-">$2M+</option>
+        <option value="-750000">$750,000 and under</option>
+        <option value="750001-900000">$750,000 – $900,000</option>
+        <option value="900001-1000000">$900,000 – $1,000,000</option>
+        <option value="1000001-1200000">$1,000,000 – $1,200,000</option>
+        <option value="1200001-">$1,200,000 +</option>
       </select>
       {filtersOn && (
         <button
           type="button"
-          onClick={() => { setQ(''); setProjectFilter(''); setBedsFilter(''); setPriceFilter('') }}
+          onClick={() => { setQ(''); setProjectFilter(''); setTypeFilter(''); setLocationFilter(''); setPriceFilter('') }}
           className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-500 hover:text-black"
         >
           Clear
@@ -381,11 +399,16 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                                 </p>
                                 <span className="text-sm font-semibold">{fmtPrice(p.price)}</span>
                               </div>
-                              <p className="text-xs text-slate-500">{p.estate}</p>
+                              <p className="text-xs text-slate-500">
+                                {p.estate}{p.location ? ` · ${p.location}` : ''}
+                              </p>
                               {p.address && (
                                 <p className="mt-0.5 text-xs text-slate-400">{p.address}</p>
                               )}
                               <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+                                {p.property_type && (
+                                  <span className="rounded bg-slate-900/5 px-1.5 py-0.5 font-medium text-slate-700">{p.property_type}</span>
+                                )}
                                 {p.house_design && (
                                   <span className="rounded bg-slate-100 px-1.5 py-0.5">{p.house_design}</span>
                                 )}
@@ -463,6 +486,18 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
             </label>
             <label className="text-xs text-slate-500">House design
               <input value={form.house_design} onChange={setF('house_design')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
+            </label>
+            <label className="text-xs text-slate-500">Property type
+              <select value={form.property_type} onChange={(e) => setForm((f) => ({ ...f, property_type: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900">
+                <option value="">—</option>
+                {PROPERTY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </label>
+            <label className="text-xs text-slate-500">Location
+              <select value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900">
+                <option value="">—</option>
+                {LOCATIONS.map((l) => <option key={l} value={l}>{l}</option>)}
+              </select>
             </label>
             <label className="col-span-2 text-xs text-slate-500">Address
               <input value={form.address} onChange={setF('address')} className="mt-1 w-full rounded border px-3 py-2 text-sm text-slate-900" />
