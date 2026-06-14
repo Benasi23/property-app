@@ -21,6 +21,7 @@ type Org = {
   contact_name: string | null
   contact_phone: string | null
   contact_email: string | null
+  can_reserve: boolean | null
 }
 type Member = { id: string; email: string | null; full_name: string | null; role: string }
 type Agreement = { id: string; title: string; storage_path: string | null; created_at: string }
@@ -72,6 +73,8 @@ export default function GroupDetailPage() {
   const [editEmailId, setEditEmailId] = useState<string | null>(null)
   const [newEmail, setNewEmail] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
+  const [invitingContact, setInvitingContact] = useState<string | null>(null)
+  const [savingReserve, setSavingReserve] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -211,6 +214,26 @@ export default function GroupDetailPage() {
     })
     const json = await res.json().catch(() => ({}))
     return { ok: res.ok, json }
+  }
+
+  const toggleReserve = async (next: boolean) => {
+    if (!orgId) return
+    setSavingReserve(true)
+    const { error } = await supabase.from('organisations').update({ can_reserve: next }).eq('id', orgId)
+    setSavingReserve(false)
+    if (error) return toast.error(error.message)
+    toast.success(next ? 'Reservation privileges enabled' : 'Reservation privileges turned off')
+    load()
+  }
+
+  const inviteContact = async (email: string | null) => {
+    if (!orgId || !email) return
+    setInvitingContact(email)
+    const { ok, json } = await authedPost('/api/invite-user', { email, organisationId: orgId })
+    setInvitingContact(null)
+    if (!ok) return toast.error(json.error || 'Could not send invite')
+    toast.success(`Invite sent to ${email}`)
+    load()
   }
 
   const resendInvite = async (m: Member) => {
@@ -459,6 +482,15 @@ export default function GroupDetailPage() {
                       <Row k="Contact number" v={org.director_phone} />
                       <Row k="Email" v={org.director_email} />
                     </dl>
+                    {org.director_email && (
+                      <button
+                        onClick={() => inviteContact(org.director_email)}
+                        disabled={invitingContact === org.director_email}
+                        className="mt-3 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {invitingContact === org.director_email ? 'Sending…' : 'Send / resend invite'}
+                      </button>
+                    )}
                   </div>
                   <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h2 className="mb-3 text-sm font-semibold">Primary contact</h2>
@@ -467,9 +499,37 @@ export default function GroupDetailPage() {
                       <Row k="Contact number" v={org.contact_phone} />
                       <Row k="Email" v={org.contact_email} />
                     </dl>
+                    {org.contact_email && (
+                      <button
+                        onClick={() => inviteContact(org.contact_email)}
+                        disabled={invitingContact === org.contact_email}
+                        className="mt-3 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {invitingContact === org.contact_email ? 'Sending…' : 'Send / resend invite'}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
+              <div className={`rounded-xl border bg-white p-5 shadow-sm ${org.can_reserve ? 'border-amber-300 ring-1 ring-amber-200' : 'border-slate-200'}`}>
+                <h2 className="mb-1 text-sm font-semibold">Reservation privileges</h2>
+                <p className="mb-3 text-xs text-slate-400">
+                  When off, this group can browse stock and open documents but can&apos;t place holds or reserve. (HQ can still reserve on their behalf.)
+                </p>
+                <label className="flex cursor-pointer items-center gap-3 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={!!org.can_reserve}
+                    onChange={(e) => toggleReserve(e.target.checked)}
+                    disabled={savingReserve}
+                    className="h-4 w-4 accent-amber-500"
+                  />
+                  <span className="font-medium">
+                    {org.can_reserve ? 'On — can reserve & move stock' : 'Off — view only'}
+                  </span>
+                </label>
+              </div>
+
               <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                 <h2 className="mb-3 text-sm font-semibold">Users ({members.length})</h2>
                 {members.length === 0 ? (

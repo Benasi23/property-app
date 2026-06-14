@@ -9,7 +9,7 @@ import StockBoard, { Property } from '@/components/StockBoard'
 
 export default function PropertiesPage() {
   const router = useRouter()
-  const { user, orgId, role, loading: authLoading } = useAuth()
+  const { user, orgId, role, canReserve, loading: authLoading } = useAuth()
   const isHq = role === 'hq_admin'
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,6 +78,7 @@ export default function PropertiesPage() {
           orgId={orgId}
           reload={load}
           isHq={isHq}
+          canReserve={canReserve}
         />
       )}
     </AppShell>

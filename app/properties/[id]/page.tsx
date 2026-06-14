@@ -65,7 +65,7 @@ export default function PropertyDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const propertyId = params?.id
-  const { user, orgId, role, loading: authLoading } = useAuth()
+  const { user, orgId, role, canReserve, loading: authLoading } = useAuth()
   const isHq = role === 'hq_admin'
 
   const [prop, setProp] = useState<Property | null>(null)
@@ -333,36 +333,42 @@ export default function PropertyDetailPage() {
               )}
 
               {prop.status === 'available' ? (
-                <div className="mt-4 space-y-2">
-                  {isHq && (
-                    <select
-                      value={selectedOrg}
-                      onChange={(e) => setSelectedOrg(e.target.value)}
-                      className="w-full rounded border px-3 py-2 text-sm"
+                isHq || canReserve ? (
+                  <div className="mt-4 space-y-2">
+                    {isHq && (
+                      <select
+                        value={selectedOrg}
+                        onChange={(e) => setSelectedOrg(e.target.value)}
+                        className="w-full rounded border px-3 py-2 text-sm"
+                      >
+                        <option value="">On behalf of… (choose group)</option>
+                        {orgs.map((o) => (
+                          <option key={o.id} value={o.id}>{o.name}</option>
+                        ))}
+                      </select>
+                    )}
+                    <div className="flex gap-2">
+                    <button
+                      onClick={() => claim('hold')}
+                      disabled={busy || (isHq && !selectedOrg)}
+                      className="flex-1 rounded bg-black py-2 text-sm font-medium text-white disabled:opacity-50"
                     >
-                      <option value="">On behalf of… (choose group)</option>
-                      {orgs.map((o) => (
-                        <option key={o.id} value={o.id}>{o.name}</option>
-                      ))}
-                    </select>
-                  )}
-                  <div className="flex gap-2">
-                  <button
-                    onClick={() => claim('hold')}
-                    disabled={busy || (isHq && !selectedOrg)}
-                    className="flex-1 rounded bg-black py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    Place hold
-                  </button>
-                  <button
-                    onClick={() => claim('reservation')}
-                    disabled={busy || (isHq && !selectedOrg)}
-                    className="flex-1 rounded border border-black py-2 text-sm font-medium disabled:opacity-50"
-                  >
-                    Reserve
-                  </button>
+                      Place hold
+                    </button>
+                    <button
+                      onClick={() => claim('reservation')}
+                      disabled={busy || (isHq && !selectedOrg)}
+                      className="flex-1 rounded border border-black py-2 text-sm font-medium disabled:opacity-50"
+                    >
+                      Reserve
+                    </button>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <p className="mt-4 text-sm text-slate-400">
+                    Available — contact Moneta HQ to place a hold or reservation.
+                  </p>
+                )
               ) : isHq && prop.held_by_org ? (
                 <p className="mt-4 text-sm font-medium text-slate-600">
                   {prop.status === 'reserved' ? 'Reserved by' : 'Held by'}: {orgNameMap[prop.held_by_org] ?? 'a group'}

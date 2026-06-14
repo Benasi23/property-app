@@ -18,6 +18,7 @@ type Org = {
   contact_name: string | null
   contact_email: string | null
   logo_url: string | null
+  can_reserve: boolean | null
 }
 type Profile = { organisation_id: string | null }
 
@@ -46,7 +47,7 @@ export default function SellingGroupsPage() {
     const [{ data: orgData }, { data: profData }] = await Promise.all([
       supabase
         .from('organisations')
-        .select('id, name, org_type, is_active, contact_name, contact_email, logo_url')
+        .select('id, name, org_type, is_active, contact_name, contact_email, logo_url, can_reserve')
         .order('name'),
       supabase.from('profiles').select('organisation_id'),
     ])
@@ -193,13 +194,17 @@ export default function SellingGroupsPage() {
                 <Link
                   key={o.id}
                   href={`/admin/agents/${o.id}`}
-                  className="group rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
+                  className={`group rounded-xl border p-5 shadow-sm transition-shadow hover:shadow-md ${
+                    o.can_reserve
+                      ? 'border-amber-300 bg-amber-50/40 ring-1 ring-amber-200'
+                      : 'border-slate-200 bg-white'
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex min-w-0 items-center gap-3">
                       {o.logo_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={o.logo_url} alt={o.name} className="h-10 w-10 shrink-0 rounded-md object-cover" />
+                        <img src={o.logo_url} alt={o.name} className={`h-10 w-10 shrink-0 rounded-md object-cover ${o.can_reserve ? 'ring-2 ring-amber-300' : ''}`} />
                       ) : (
                         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-slate-100 text-sm font-bold text-slate-400">
                           {o.name.charAt(0)}
@@ -207,9 +212,16 @@ export default function SellingGroupsPage() {
                       )}
                       <h2 className="truncate text-base font-semibold group-hover:text-black">{o.name}</h2>
                     </div>
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${o.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
-                      {o.is_active ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${o.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                        {o.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                      {o.can_reserve && (
+                        <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                          ★ Reservations
+                        </span>
+                      )}
+                    </div>
                   </div>
                   {o.contact_name && <p className="mt-2 text-sm text-slate-500">{o.contact_name}</p>}
                   {o.contact_email && <p className="text-xs text-slate-400">{o.contact_email}</p>}

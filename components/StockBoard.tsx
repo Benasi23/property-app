@@ -49,11 +49,13 @@ type Props = {
   orgId: string | null
   reload: () => void
   isHq?: boolean
+  canReserve?: boolean
 }
 
 const numOrNull = (v: string) => (v.trim() === '' ? null : Number(v))
 
-export default function StockBoard({ properties, setProperties, orgId, reload, isHq = false }: Props) {
+export default function StockBoard({ properties, setProperties, orgId, reload, isHq = false, canReserve = true }: Props) {
+  const readOnly = !isHq && !canReserve
   const [orgNames, setOrgNames] = useState<Record<string, string>>({})
 
   // HQ-only quick edit
@@ -202,6 +204,11 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
 
   return (
     <>
+    {readOnly && (
+      <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+        View-only access — you can browse stock and open documents, but reserving and moving stock is not enabled for your group. Contact Moneta HQ to request it.
+      </div>
+    )}
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {COLUMNS.map((col) => {
@@ -230,7 +237,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                     {items.map((p, index) => {
                       const heldByYou = p.held_by_org && p.held_by_org === orgId
                       return (
-                        <Draggable draggableId={p.id} index={index} key={p.id}>
+                        <Draggable draggableId={p.id} index={index} key={p.id} isDragDisabled={readOnly}>
                           {(dp, ds) => (
                             <div
                               ref={dp.innerRef}

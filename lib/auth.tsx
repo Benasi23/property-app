@@ -11,6 +11,7 @@ type AuthContextType = {
   orgName: string | null
   orgLogo: string | null
   role: string | null
+  canReserve: boolean
   loading: boolean
   signOut: () => Promise<void>
 }
@@ -21,6 +22,7 @@ const AuthContext = createContext<AuthContextType>({
   orgName: null,
   orgLogo: null,
   role: null,
+  canReserve: false,
   loading: true,
   signOut: async () => {},
 })
@@ -31,6 +33,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [orgName, setOrgName] = useState<string | null>(null)
   const [orgLogo, setOrgLogo] = useState<string | null>(null)
   const [role, setRole] = useState<string | null>(null)
+  const [canReserve, setCanReserve] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const loadProfile = async (uid: string) => {
@@ -41,18 +44,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .single()
     setOrgId(profile?.organisation_id ?? null)
     setRole(profile?.role ?? null)
+    const isHq = profile?.role === 'hq_admin'
 
     if (profile?.organisation_id) {
       const { data: org } = await supabase
         .from('organisations')
-        .select('name, logo_url')
+        .select('name, logo_url, can_reserve')
         .eq('id', profile.organisation_id)
         .single()
       setOrgName(org?.name ?? null)
       setOrgLogo(org?.logo_url ?? null)
+      setCanReserve(isHq || !!org?.can_reserve)
     } else {
       setOrgName(null)
       setOrgLogo(null)
+      setCanReserve(isHq)
     }
   }
 
@@ -79,6 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setOrgName(null)
         setOrgLogo(null)
         setRole(null)
+        setCanReserve(false)
       }
       setLoading(false)
     })
@@ -94,7 +101,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, orgId, orgName, orgLogo, role, loading, signOut }}>
+    <AuthContext.Provider value={{ user, orgId, orgName, orgLogo, role, canReserve, loading, signOut }}>
       <Toaster position="top-right" />
       {children}
     </AuthContext.Provider>

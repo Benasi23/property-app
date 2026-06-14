@@ -40,7 +40,7 @@ export default function ProjectDetailPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const projectId = params?.id
-  const { user, orgId, role, loading: authLoading } = useAuth()
+  const { user, orgId, role, canReserve, loading: authLoading } = useAuth()
   const isHq = role === 'hq_admin'
   const [project, setProject] = useState<Project | null>(null)
   const [properties, setProperties] = useState<Property[]>([])
@@ -263,7 +263,7 @@ export default function ProjectDetailPage() {
           {properties.length === 0 ? (
             <p className="text-slate-500">No properties in this project yet.{isHq ? ' Use “+ Add property” to add one.' : ''}</p>
           ) : (
-            <StockBoard properties={properties} setProperties={setProperties} orgId={orgId} reload={load} isHq={isHq} />
+            <StockBoard properties={properties} setProperties={setProperties} orgId={orgId} reload={load} isHq={isHq} canReserve={canReserve} />
           )}
 
           {/* Videos — project-level only */}
