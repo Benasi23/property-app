@@ -74,6 +74,10 @@ export default function GroupDetailPage() {
   const [editEmailId, setEditEmailId] = useState<string | null>(null)
   const [newEmail, setNewEmail] = useState('')
   const [savingEmail, setSavingEmail] = useState(false)
+  const [editProfileId, setEditProfileId] = useState<string | null>(null)
+  const [pName, setPName] = useState('')
+  const [pPhone, setPPhone] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
   const [invitingContact, setInvitingContact] = useState<string | null>(null)
   const [savingReserve, setSavingReserve] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -282,6 +286,20 @@ export default function GroupDetailPage() {
     toast.success(`Email updated — invite sent to ${email}`)
     setEditEmailId(null)
     setNewEmail('')
+    load()
+  }
+
+  const saveProfile = async (m: Member) => {
+    if (!pName.trim()) return toast.error('Name is required')
+    setSavingProfile(true)
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: pName.trim(), phone: pPhone.trim() || null })
+      .eq('id', m.id)
+    setSavingProfile(false)
+    if (error) return toast.error(error.message)
+    toast.success('User details updated')
+    setEditProfileId(null)
     load()
   }
 
@@ -560,7 +578,28 @@ export default function GroupDetailPage() {
                           <span className="shrink-0 text-xs capitalize text-slate-400">{m.role.replace('_', ' ')}</span>
                         </div>
 
-                        {editEmailId === m.id ? (
+                        {editProfileId === m.id ? (
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <input
+                              type="text"
+                              value={pName}
+                              onChange={(e) => setPName(e.target.value)}
+                              placeholder="Full name"
+                              className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                            />
+                            <input
+                              type="tel"
+                              value={pPhone}
+                              onChange={(e) => setPPhone(e.target.value)}
+                              placeholder="Mobile"
+                              className="min-w-0 flex-1 rounded border px-2 py-1 text-xs"
+                            />
+                            <button onClick={() => saveProfile(m)} disabled={savingProfile} className="rounded bg-black px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                              {savingProfile ? 'Saving…' : 'Save'}
+                            </button>
+                            <button onClick={() => setEditProfileId(null)} className="text-xs text-slate-400 hover:text-black">Cancel</button>
+                          </div>
+                        ) : editEmailId === m.id ? (
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <input
                               type="email"
@@ -584,6 +623,9 @@ export default function GroupDetailPage() {
                           </div>
                         ) : (
                           <div className="mt-2 flex flex-wrap items-center gap-3">
+                            <button onClick={() => { setEditProfileId(m.id); setPName(m.full_name ?? ''); setPPhone(m.phone ?? '') }} className="text-xs font-medium text-slate-500 hover:text-black">
+                              Edit details
+                            </button>
                             <button onClick={() => resendInvite(m)} disabled={resendingId === m.id} className="text-xs font-medium text-slate-500 hover:text-black disabled:opacity-50">
                               {resendingId === m.id ? 'Sending…' : 'Resend invite'}
                             </button>
