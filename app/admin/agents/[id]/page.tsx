@@ -23,13 +23,14 @@ type Org = {
   contact_email: string | null
   can_reserve: boolean | null
 }
-type Member = { id: string; email: string | null; full_name: string | null; role: string }
+type Member = { id: string; email: string | null; full_name: string | null; phone: string | null; role: string }
 type Agreement = { id: string; title: string; storage_path: string | null; created_at: string }
 type HeldProp = { id: string; lot_number: string | null; estate: string | null; status: string; price: number | null }
 type Res = {
-  id: string; res_type: string; status: string; created_at: string
+  id: string; res_type: string; status: string; created_at: string; user_id: string | null
   properties: { id: string; lot_number: string | null; estate: string | null } | null
 }
+type InviteRow = { name: string; email: string; phone: string }
 
 const money = (n: number) => `$${Number(n || 0).toLocaleString()}`
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—')
@@ -65,7 +66,7 @@ export default function GroupDetailPage() {
   const setE = (k: keyof typeof edit) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setEdit((f) => ({ ...f, [k]: e.target.value }))
 
-  const [inviteEmails, setInviteEmails] = useState<string[]>([''])
+  const [inviteRows, setInviteRows] = useState<InviteRow[]>([{ name: '', email: '', phone: '' }])
   const [inviting, setInviting] = useState(false)
   const [resendingId, setResendingId] = useState<string | null>(null)
   const [confirmDelMemberId, setConfirmDelMemberId] = useState<string | null>(null)
@@ -82,10 +83,10 @@ export default function GroupDetailPage() {
     if (!orgId) return
     const [{ data: o }, { data: m }, { data: a }, { data: hp }, { data: rs }] = await Promise.all([
       supabase.from('organisations').select('*').eq('id', orgId).single(),
-      supabase.from('profiles').select('id, email, full_name, role').eq('organisation_id', orgId),
+      supabase.from('profiles').select('id, email, full_name, phone, role').eq('organisation_id', orgId),
       supabase.from('documents').select('id, title, storage_path, created_at').eq('organisation_id', orgId).eq('doc_type', 'agreement').order('created_at', { ascending: false }),
       supabase.from('properties').select('id, lot_number, estate, status, price').eq('held_by_org', orgId),
-      supabase.from('reservations').select('id, res_type, status, created_at, properties(id, lot_number, estate)').eq('organisation_id', orgId).order('created_at', { ascending: false }).limit(20),
+      supabase.from('reservations').select('id, res_type, status, created_at, user_id, properties(id, lot_number, estate)').eq('organisation_id', orgId).order('created_at', { ascending: false }).limit(20),
     ])
     setOrg(o)
     setMembers(m ?? [])
@@ -115,6 +116,11 @@ export default function GroupDetailPage() {
     }
     return s
   }, [heldProps])
+
+  const memberById = useMemo(
+    () => Object.fromEntries(members.map((m) => [m.id, m])) as Record<string, Member>,
+    [members],
+  )
 
   const addAgreement = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -174,34 +180,35 @@ export default function GroupDetailPage() {
     load()
   }
 
-  const setEmailAt = (i: number, v: string) =>
-    setInviteEmails((a) => a.map((e, idx) => (idx === i ? v : e)))
-  const addEmailRow = () => setInviteEmails((a) => [...a, ''])
+  const setRowAt = (i: number, k: keyof InviteRow, v: string) =>
+    setInviteRows((a) => a.map((r, idx) => (idx === i ? { ...r, [k]: v } : r)))
+  const addEmailRow = () => setInviteRows((a) => [...a, { name: '', email: '', phone: '' }])
   const removeEmailRow = (i: number) =>
-    setInviteEmails((a) => (a.length === 1 ? [''] : a.filter((_, idx) => idx !== i)))
+    setInviteRows((a) => (a.length === 1 ? [{ name: '', email: '', phone: '' }] : a.filter((_, idx) => idx !== i)))
 
   const sendInvites = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!orgId) return
-    const emails = Array.from(new Set(inviteEmails.map((x) => x.trim()).filter(Boolean)))
-    if (emails.length === 0) return toast.error('Add at least one email')
+    const rows = inviteRows.filter((r) => r.email.trim())
+    if (rows.length === 0) return toast.error('Add at least one email')
+    if (rows.some((r) => !r.name.trim())) return toast.error('Each user needs a name')
     setInviting(true)
     const { data: s } = await supabase.auth.getSession()
     const token = s.session?.access_token ?? ''
     let ok = 0
-    for (const email of emails) {
+    for (const r of rows) {
       const res = await fetch('/api/invite-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ email, organisationId: orgId }),
+        body: JSON.stringify({ email: r.email.trim(), name: r.name.trim(), phone: r.phone.trim(), organisationId: orgId }),
       })
       const json = await res.json().catch(() => ({}))
       if (res.ok) ok++
-      else toast.error(`${email}: ${json.error || 'invite failed'}`)
+      else toast.error(`${r.email.trim()}: ${json.error || 'invite failed'}`)
     }
     setInviting(false)
     if (ok > 0) toast.success(`${ok} invite${ok > 1 ? 's' : ''} sent`)
-    setInviteEmails([''])
+    setInviteRows([{ name: '', email: '', phone: '' }])
     load()
   }
 
@@ -226,10 +233,10 @@ export default function GroupDetailPage() {
     load()
   }
 
-  const inviteContact = async (email: string | null) => {
+  const inviteContact = async (email: string | null, name?: string | null, phone?: string | null) => {
     if (!orgId || !email) return
     setInvitingContact(email)
-    const { ok, json } = await authedPost('/api/invite-user', { email, organisationId: orgId })
+    const { ok, json } = await authedPost('/api/invite-user', { email, name: name ?? '', phone: phone ?? '', organisationId: orgId })
     setInvitingContact(null)
     if (!ok) return toast.error(json.error || 'Could not send invite')
     toast.success(`Invite sent to ${email}`)
@@ -239,7 +246,7 @@ export default function GroupDetailPage() {
   const resendInvite = async (m: Member) => {
     if (!orgId || !m.email) return
     setResendingId(m.id)
-    const { ok, json } = await authedPost('/api/invite-user', { email: m.email, organisationId: orgId })
+    const { ok, json } = await authedPost('/api/invite-user', { email: m.email, name: m.full_name ?? '', phone: m.phone ?? '', organisationId: orgId })
     setResendingId(null)
     if (!ok) return toast.error(json.error || 'Could not resend invite')
     toast.success(`Invite re-sent to ${m.email}`)
@@ -269,7 +276,7 @@ export default function GroupDetailPage() {
       setSavingEmail(false)
       return toast.error(del.json.error || 'Could not update email')
     }
-    const inv = await authedPost('/api/invite-user', { email, organisationId: orgId })
+    const inv = await authedPost('/api/invite-user', { email, name: m.full_name ?? '', phone: m.phone ?? '', organisationId: orgId })
     setSavingEmail(false)
     if (!inv.ok) return toast.error(inv.json.error || 'Old login removed, but inviting the new email failed')
     toast.success(`Email updated — invite sent to ${email}`)
@@ -383,6 +390,7 @@ export default function GroupDetailPage() {
                         <th className="px-5 py-2 font-medium">Project</th>
                         <th className="px-5 py-2 font-medium">Lot</th>
                         <th className="px-5 py-2 font-medium">Type</th>
+                        <th className="px-5 py-2 font-medium">By</th>
                         <th className="px-5 py-2 font-medium">Status</th>
                         <th className="px-5 py-2 font-medium">Date</th>
                       </tr>
@@ -405,6 +413,11 @@ export default function GroupDetailPage() {
                             ) : (`Lot ${r.properties?.lot_number ?? '—'}`)}
                           </td>
                           <td className="px-5 py-2.5 capitalize">{r.res_type}</td>
+                          <td className="px-5 py-2.5 text-slate-700">
+                            {r.user_id && memberById[r.user_id]
+                              ? (memberById[r.user_id].full_name || memberById[r.user_id].email || '—')
+                              : '—'}
+                          </td>
                           <td className="px-5 py-2.5 capitalize text-slate-500">{r.status}</td>
                           <td className="px-5 py-2.5 text-slate-500">{fmtDate(r.created_at)}</td>
                         </tr>
@@ -484,7 +497,7 @@ export default function GroupDetailPage() {
                     </dl>
                     {org.director_email && (
                       <button
-                        onClick={() => inviteContact(org.director_email)}
+                        onClick={() => inviteContact(org.director_email, org.director_name, org.director_phone)}
                         disabled={invitingContact === org.director_email}
                         className="mt-3 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                       >
@@ -501,7 +514,7 @@ export default function GroupDetailPage() {
                     </dl>
                     {org.contact_email && (
                       <button
-                        onClick={() => inviteContact(org.contact_email)}
+                        onClick={() => inviteContact(org.contact_email, org.contact_name, org.contact_phone)}
                         disabled={invitingContact === org.contact_email}
                         className="mt-3 rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                       >
@@ -542,6 +555,7 @@ export default function GroupDetailPage() {
                           <div className="min-w-0">
                             <p className="truncate font-medium">{m.full_name || m.email}</p>
                             {m.full_name && m.email && <p className="truncate text-xs text-slate-400">{m.email}</p>}
+                            {m.phone && <p className="truncate text-xs text-slate-400">{m.phone}</p>}
                           </div>
                           <span className="shrink-0 text-xs capitalize text-slate-400">{m.role.replace('_', ' ')}</span>
                         </div>
@@ -586,23 +600,37 @@ export default function GroupDetailPage() {
                   </ul>
                 )}
 
-                <form onSubmit={sendInvites} className="mt-4 space-y-2 border-t border-slate-100 pt-4">
+                <form onSubmit={sendInvites} className="mt-4 space-y-3 border-t border-slate-100 pt-4">
                   <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Invite users</p>
-                  {inviteEmails.map((em, i) => (
-                    <div key={i} className="flex gap-2">
+                  {inviteRows.map((r, i) => (
+                    <div key={i} className="flex flex-wrap items-start gap-2">
+                      <input
+                        type="text"
+                        value={r.name}
+                        onChange={(e) => setRowAt(i, 'name', e.target.value)}
+                        placeholder="Full name"
+                        className="min-w-[120px] flex-1 rounded border px-3 py-2 text-sm"
+                      />
                       <input
                         type="email"
-                        value={em}
-                        onChange={(e) => setEmailAt(i, e.target.value)}
+                        value={r.email}
+                        onChange={(e) => setRowAt(i, 'email', e.target.value)}
                         placeholder="user@example.com"
-                        className="flex-1 rounded border px-3 py-2 text-sm"
+                        className="min-w-[160px] flex-1 rounded border px-3 py-2 text-sm"
                       />
-                      {inviteEmails.length > 1 && (
+                      <input
+                        type="tel"
+                        value={r.phone}
+                        onChange={(e) => setRowAt(i, 'phone', e.target.value)}
+                        placeholder="Mobile"
+                        className="min-w-[110px] flex-1 rounded border px-3 py-2 text-sm"
+                      />
+                      {inviteRows.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeEmailRow(i)}
-                          aria-label="Remove email"
-                          className="rounded border border-slate-200 px-3 text-sm text-slate-400 hover:text-red-600"
+                          aria-label="Remove user"
+                          className="rounded border border-slate-200 px-3 py-2 text-sm text-slate-400 hover:text-red-600"
                         >
                           ✕
                         </button>

@@ -25,6 +25,7 @@ type Property = {
   price: number | null
   status: string
   held_by_org: string | null
+  held_by_user: string | null
   hold_expires_at: string | null
   project_id: string | null
   is_hidden: boolean
@@ -69,6 +70,7 @@ export default function PropertyDetailPage() {
   const isHq = role === 'hq_admin'
 
   const [prop, setProp] = useState<Property | null>(null)
+  const [holder, setHolder] = useState<{ full_name: string | null; phone: string | null; email: string | null } | null>(null)
   const [docs, setDocs] = useState<Doc[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -160,6 +162,18 @@ export default function PropertyDetailPage() {
       .select('id, title, doc_type, storage_path, property_id, project_id, organisation_id')
       .or(orParts.join(','))
       .order('created_at', { ascending: false })
+
+    // Who (which individual) is holding/reserving this lot — name + mobile.
+    if (p?.held_by_user) {
+      const { data: hp } = await supabase
+        .from('profiles')
+        .select('full_name, phone, email')
+        .eq('id', p.held_by_user)
+        .maybeSingle()
+      setHolder(hp ?? null)
+    } else {
+      setHolder(null)
+    }
 
     setProp(p)
     setDocs(d ?? [])
@@ -370,11 +384,23 @@ export default function PropertyDetailPage() {
                   </p>
                 )
               ) : isHq && prop.held_by_org ? (
-                <p className="mt-4 text-sm font-medium text-slate-600">
-                  {prop.status === 'reserved' ? 'Reserved by' : 'Held by'}: {orgNameMap[prop.held_by_org] ?? 'a group'}
-                </p>
+                <div className="mt-4 text-sm font-medium text-slate-600">
+                  <p>{prop.status === 'reserved' ? 'Reserved by' : 'Held by'}: {orgNameMap[prop.held_by_org] ?? 'a group'}</p>
+                  {holder && (holder.full_name || holder.email) && (
+                    <p className="mt-0.5 text-xs font-normal text-slate-500">
+                      by {holder.full_name || holder.email}{holder.phone ? ` · ${holder.phone}` : ''}
+                    </p>
+                  )}
+                </div>
               ) : heldByYou ? (
-                <p className="mt-4 text-sm font-medium text-amber-600">Held by your group</p>
+                <div className="mt-4 text-sm font-medium text-amber-600">
+                  <p>Held by your group</p>
+                  {holder && (holder.full_name || holder.email) && (
+                    <p className="mt-0.5 text-xs font-normal text-amber-700">
+                      by {holder.full_name || holder.email}{holder.phone ? ` · ${holder.phone}` : ''}
+                    </p>
+                  )}
+                </div>
               ) : (
                 <p className="mt-4 text-sm text-slate-400">Currently unavailable</p>
               )}

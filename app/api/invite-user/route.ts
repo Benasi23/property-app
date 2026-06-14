@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const email: string | undefined = body.email
     const organisationId: string | undefined = body.organisationId
+    const fullName: string = (body.name ?? '').trim()
+    const phone: string = (body.phone ?? '').trim()
     if (!email || !organisationId) {
       return Response.json({ error: 'Email and group are required' }, { status: 400 })
     }
@@ -32,7 +34,7 @@ export async function POST(req: NextRequest) {
     const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || ''
     const invite = () =>
       supabaseServer.auth.admin.inviteUserByEmail(email, {
-        data: { organisation_id: organisationId, role: 'agent' },
+        data: { organisation_id: organisationId, role: 'agent', full_name: fullName, phone },
         redirectTo: `${origin}/auth/set-password`,
       })
 
