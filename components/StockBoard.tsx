@@ -38,8 +38,8 @@ export const REGIONS: Record<string, string[]> = {
 
 const COLUMNS = [
   { key: 'available', label: 'Available', dot: 'bg-emerald-500', head: 'text-emerald-700' },
-  { key: 'hold', label: 'On Hold', dot: 'bg-amber-500', head: 'text-amber-700' },
-  { key: 'reserved', label: 'Reserved', dot: 'bg-orange-500', head: 'text-orange-700' },
+  { key: 'hold', label: 'Reserved', dot: 'bg-amber-500', head: 'text-amber-700' },
+  { key: 'reserved', label: 'Expression of Interest', dot: 'bg-orange-500', head: 'text-orange-700' },
   { key: 'under_contract', label: 'Under Contract', dot: 'bg-blue-500', head: 'text-blue-700' },
   { key: 'finance_approved', label: 'Finance Approved', dot: 'bg-teal-500', head: 'text-teal-700' },
   { key: 'sold', label: 'Sold', dot: 'bg-slate-500', head: 'text-slate-700' },
@@ -47,8 +47,8 @@ const COLUMNS = [
 
 const LABELS: Record<string, string> = {
   available: 'Available',
-  hold: 'On Hold',
-  reserved: 'Reserved',
+  hold: 'Reserved',
+  reserved: 'Expression of Interest',
   under_contract: 'Under Contract',
   finance_approved: 'Finance Approved',
   sold: 'Sold',
