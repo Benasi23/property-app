@@ -9,6 +9,7 @@ import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import StockBoard, { Property, PROPERTY_TYPES, LOCATIONS, REGIONS } from '@/components/StockBoard'
+import DocThumb from '@/components/DocThumb'
 import VisibilityMenu from '@/components/VisibilityMenu'
 import Dropzone from '@/components/Dropzone'
 
@@ -368,8 +369,9 @@ export default function ProjectDetailPage() {
             ) : (
               <ul className="space-y-2">
                 {docs.map((d) => (
-                  <li key={d.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2">
-                    <span className="flex items-center gap-2 text-sm">
+                  <li key={d.id} className="flex items-center gap-3 rounded-lg border border-slate-100 px-3 py-2">
+                    <DocThumb url={d.storage_path} />
+                    <span className="flex flex-1 items-center gap-2 text-sm">
                       {d.title}
                       <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${DOC_TYPE_STYLE[d.doc_type] ?? 'bg-slate-100'}`}>
                         {d.doc_type.replace('_', ' ')}
