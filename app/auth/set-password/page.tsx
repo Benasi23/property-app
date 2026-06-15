@@ -40,13 +40,13 @@ export default function SetPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-xl bg-white p-8 shadow">
+    <div className="flex min-h-screen items-center justify-center bg-[#27323B] p-4">
+      <form onSubmit={submit} className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-8 text-slate-900 shadow-xl">
         <div className="text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/moneta-group-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-32 rounded-lg" />
-          <h1 className="text-lg font-bold">Set your password</h1>
-          <p className="text-sm text-gray-500">Create a password to activate your account.</p>
+          <img src="/moneta-group-logo.png" alt="Moneta Group" className="mx-auto mb-3 w-28 rounded-lg" />
+          <h1 className="text-lg font-bold text-slate-900">Set your password</h1>
+          <p className="text-sm text-slate-500">Create a password to activate your account.</p>
         </div>
 
         {checked && !hasSession && (
@@ -58,20 +58,22 @@ export default function SetPasswordPage() {
         <input
           type="password"
           required
+          autoComplete="new-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="New password"
-          className="w-full rounded border px-3 py-2"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-slate-900 placeholder-slate-400 outline-none focus:border-[#C79D6F] focus:ring-2 focus:ring-[#C79D6F]/30"
         />
         <input
           type="password"
           required
+          autoComplete="new-password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           placeholder="Confirm password"
-          className="w-full rounded border px-3 py-2"
+          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-slate-900 placeholder-slate-400 outline-none focus:border-[#C79D6F] focus:ring-2 focus:ring-[#C79D6F]/30"
         />
-        <button type="submit" disabled={busy} className="w-full rounded bg-black py-2 font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={busy} className="w-full rounded-lg bg-slate-900 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
           {busy ? 'Saving…' : 'Set password & continue'}
         </button>
       </form>

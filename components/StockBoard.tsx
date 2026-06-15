@@ -41,6 +41,7 @@ const COLUMNS = [
   { key: 'hold', label: 'On Hold', dot: 'bg-amber-500', head: 'text-amber-700' },
   { key: 'reserved', label: 'Reserved', dot: 'bg-orange-500', head: 'text-orange-700' },
   { key: 'under_contract', label: 'Under Contract', dot: 'bg-blue-500', head: 'text-blue-700' },
+  { key: 'finance_approved', label: 'Finance Approved', dot: 'bg-teal-500', head: 'text-teal-700' },
   { key: 'sold', label: 'Sold', dot: 'bg-slate-500', head: 'text-slate-700' },
 ] as const
 
@@ -49,6 +50,7 @@ const LABELS: Record<string, string> = {
   hold: 'On Hold',
   reserved: 'Reserved',
   under_contract: 'Under Contract',
+  finance_approved: 'Finance Approved',
   sold: 'Sold',
 }
 
@@ -204,7 +206,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
 
   const grouped = useMemo(() => {
     const g: Record<string, Property[]> = {
-      available: [], hold: [], reserved: [], under_contract: [], sold: [],
+      available: [], hold: [], reserved: [], under_contract: [], finance_approved: [], sold: [],
     }
     for (const p of visible) (g[p.status] ?? (g[p.status] = [])).push(p)
     return g
@@ -256,6 +258,12 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         if (error) return { ok: false, msg: error.message }
       }
       const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'under_contract' })
+      return error ? { ok: false, msg: error.message } : { ok: true }
+    }
+
+    // Finance approved
+    if (to === 'finance_approved') {
+      const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'finance_approved' })
       return error ? { ok: false, msg: error.message } : { ok: true }
     }
 
@@ -372,7 +380,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       )}
     </div>
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
         {COLUMNS.map((col) => {
           const items = grouped[col.key] ?? []
           return (

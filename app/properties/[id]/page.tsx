@@ -60,6 +60,7 @@ const STATUS_STYLE: Record<string, string> = {
   hold: 'bg-amber-100 text-amber-700',
   reserved: 'bg-orange-100 text-orange-700',
   under_contract: 'bg-blue-100 text-blue-700',
+  finance_approved: 'bg-teal-100 text-teal-700',
   sold: 'bg-slate-200 text-slate-700',
 }
 
