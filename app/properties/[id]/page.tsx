@@ -12,6 +12,7 @@ import VisibilityMenu from '@/components/VisibilityMenu'
 import Countdown from '@/components/Countdown'
 import Dropzone from '@/components/Dropzone'
 import { PROPERTY_TYPES, LOCATIONS, REGIONS } from '@/components/StockBoard'
+import { describeProperty, propertyStatusLabel, propertyStatusStyle } from '@/lib/state'
 import DocThumb, { isImageUrl, isPdfUrl } from '@/components/DocThumb'
 
 type Property = {
@@ -55,26 +56,6 @@ const SECTIONS: Section[] = [
   { key: 'deposit', label: 'Deposit Information', types: ['deposit'] },
   { key: 'contract', label: 'Contracts', types: ['contract', 'signed_contract'], groupUpload: { docType: 'signed_contract', cta: 'Upload signed contract' } },
 ]
-
-const STATUS_STYLE: Record<string, string> = {
-  available: 'bg-emerald-100 text-emerald-700',
-  hold: 'bg-amber-100 text-amber-700',
-  reserved: 'bg-orange-100 text-orange-700',
-  under_contract: 'bg-blue-100 text-blue-700',
-  finance_approved: 'bg-teal-100 text-teal-700',
-  sold: 'bg-slate-200 text-slate-700',
-}
-
-const STATUS_LABEL: Record<string, string> = {
-  available: 'Available',
-  hold: 'Reserved',
-  reserved: 'Expression of Interest',
-  under_contract: 'Under Contract',
-  finance_approved: 'Finance Approved',
-  sold: 'Sold',
-  withdrawn: 'Withdrawn',
-}
-
 
 const money = (n: number | null) => (n != null ? `$${Number(n).toLocaleString()}` : 'POA')
 
@@ -210,7 +191,6 @@ export default function PropertyDetailPage() {
       router.replace('/login')
       return
     }
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [authLoading, user, router, load])
 
@@ -333,6 +313,7 @@ export default function PropertyDetailPage() {
 
   const heldByYou = prop?.held_by_org && prop.held_by_org === orgId
   const location = prop ? [prop.estate, prop.address].filter(Boolean).join(' · ') : ''
+  const lifecycle = prop ? describeProperty(prop.status, prop.hold_expires_at) : null
 
   return (
     <AppShell
@@ -391,8 +372,8 @@ export default function PropertyDetailPage() {
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-2xl font-bold">{money(prop.price)}</span>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[prop.status] ?? 'bg-slate-100'}`}>
-                  {STATUS_LABEL[prop.status] ?? prop.status}
+                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${propertyStatusStyle(prop.status)}`}>
+                  {propertyStatusLabel(prop.status)}
                 </span>
               </div>
               <dl className="space-y-1.5 text-sm">
@@ -407,17 +388,17 @@ export default function PropertyDetailPage() {
                 {prop.address && <Row k="Address" v={prop.address} />}
               </dl>
 
-              {prop.status === 'hold' && (
+              {lifecycle?.status === 'hold' && (
                 <div className="mt-3 rounded-lg bg-amber-50 p-3 text-sm">
-                  {prop.hold_expires_at ? (
-                    <p className="font-medium text-amber-700">⏳ Hold expires in <Countdown expires={prop.hold_expires_at} /></p>
+                  {lifecycle.approval === 'active' ? (
+                    <p className="font-medium text-amber-700">⏳ Hold expires in <Countdown expires={lifecycle.expiresAt} /></p>
                   ) : (
                     <p className="font-medium text-purple-700">Hold request pending Moneta HQ approval</p>
                   )}
                 </div>
               )}
 
-              {prop.status === 'available' ? (
+              {lifecycle?.status === 'available' ? (
                 isHq || canReserve ? (
                   <div className="mt-4 space-y-2">
                     {isHq && (

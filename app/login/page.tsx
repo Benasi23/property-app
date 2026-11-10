@@ -4,23 +4,25 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { reduceMutation, type MutationPhase } from '@/lib/state'
 
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
-  const [busy, setBusy] = useState(false)
+  const [login, setLogin] = useState<MutationPhase>({ phase: 'idle' })
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setBusy(true)
+    setLogin((current) => reduceMutation(current, { type: 'start' }))
     const { error } = await supabase.auth.signInWithPassword({ email, password })
-    setBusy(false)
     if (error) {
+      setLogin((current) => reduceMutation(current, { type: 'fail', message: error.message }))
       toast.error(error.message)
       return
     }
+    setLogin((current) => reduceMutation(current, { type: 'succeed' }))
     toast.success('Signed in')
     router.push('/properties')
   }
@@ -80,10 +82,10 @@ export default function LoginPage() {
 
         <button
           type="submit"
-          disabled={busy}
+          disabled={login.phase === 'pending'}
           className="w-full rounded-lg bg-slate-900 py-2.5 text-[15px] font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50"
         >
-          {busy ? 'Signing in…' : 'Sign in'}
+          {login.phase === 'pending' ? 'Signing in…' : 'Sign in'}
         </button>
 
         <p className="text-center text-sm">

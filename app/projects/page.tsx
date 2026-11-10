@@ -7,6 +7,7 @@ import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import { parsePropertyStatus } from '@/lib/state'
 
 type Project = { id: string; name: string; suburb: string | null; state: string | null; is_hidden?: boolean; marketing_image_url?: string | null }
 type Counts = { total: number; available: number; sold: number }
@@ -33,8 +34,8 @@ export default function ProjectsPage() {
       const key = p.project_id ?? 'none'
       const row = (c[key] ??= { total: 0, available: 0, sold: 0 })
       row.total++
-      if (p.status === 'available') row.available++
-      if (p.status === 'sold') row.sold++
+      if (parsePropertyStatus(p.status) === 'available') row.available++
+      if (parsePropertyStatus(p.status) === 'sold') row.sold++
     }
     setProjects(projData ?? [])
     setCounts(c)

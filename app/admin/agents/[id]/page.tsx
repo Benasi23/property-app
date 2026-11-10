@@ -9,6 +9,7 @@ import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import Dropzone from '@/components/Dropzone'
+import { RELEASE_ON_GROUP_DELETE, reduceConfirm, tallyPropertyStatuses, type ConfirmPhase } from '@/lib/state'
 
 type Org = {
   id: string
@@ -80,8 +81,7 @@ export default function GroupDetailPage() {
   const [savingProfile, setSavingProfile] = useState(false)
   const [invitingContact, setInvitingContact] = useState<string | null>(null)
   const [savingReserve, setSavingReserve] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [deleting, setDeleting] = useState(false)
+  const [deleteFlow, setDeleteFlow] = useState<ConfirmPhase>('idle')
 
   const load = useCallback(async () => {
     if (!orgId) return
@@ -110,16 +110,7 @@ export default function GroupDetailPage() {
     load()
   }, [authLoading, user, router, load])
 
-  const activity = useMemo(() => {
-    const s = { hold: 0, reserved: 0, under_contract: 0, sold: 0, soldValue: 0 }
-    for (const p of heldProps) {
-      if (p.status === 'hold') s.hold++
-      else if (p.status === 'reserved') s.reserved++
-      else if (p.status === 'under_contract') s.under_contract++
-      else if (p.status === 'sold') { s.sold++; s.soldValue += Number(p.price || 0) }
-    }
-    return s
-  }, [heldProps])
+  const activity = useMemo(() => tallyPropertyStatuses(heldProps), [heldProps])
 
   const memberById = useMemo(
     () => Object.fromEntries(members.map((m) => [m.id, m])) as Record<string, Member>,
@@ -307,16 +298,20 @@ export default function GroupDetailPage() {
 
   const deleteGroup = async () => {
     if (!orgId) return
-    setDeleting(true)
+    const next = reduceConfirm(deleteFlow, 'submit')
+    if (next !== 'submitting') return
+    setDeleteFlow(next)
     // Free any stock this group was holding so it returns to available.
     await supabase
       .from('properties')
       .update({ status: 'available', held_by_org: null, held_by_user: null, hold_expires_at: null })
       .eq('held_by_org', orgId)
-      .in('status', ['hold', 'reserved', 'under_contract'])
+      .in('status', [...RELEASE_ON_GROUP_DELETE])
     const { error } = await supabase.from('organisations').delete().eq('id', orgId)
-    setDeleting(false)
-    if (error) return toast.error(error.message)
+    if (error) {
+      setDeleteFlow((current) => reduceConfirm(current, 'fail'))
+      return toast.error(error.message)
+    }
     toast.success('Selling group deleted')
     router.push('/admin/agents')
   }
@@ -339,6 +334,7 @@ export default function GroupDetailPage() {
     { label: 'On hold', value: activity.hold },
     { label: 'Reserved', value: activity.reserved },
     { label: 'Under contract', value: activity.under_contract },
+    { label: 'Finance approved', value: activity.finance_approved },
     { label: 'Sold', value: activity.sold },
   ]
 
@@ -387,7 +383,7 @@ export default function GroupDetailPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             {statCards.map((c) => (
               <div key={c.label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                 <p className="text-xs text-slate-400">{c.label}</p>
@@ -484,8 +480,8 @@ export default function GroupDetailPage() {
 
                   {/* Danger zone — delete group (two-step) */}
                   <div className="mt-6 border-t border-slate-100 pt-4">
-                    {!confirmDelete ? (
-                      <button type="button" onClick={() => setConfirmDelete(true)} className="text-sm font-medium text-red-600 hover:underline">
+                    {deleteFlow === 'idle' ? (
+                      <button type="button" onClick={() => setDeleteFlow((current) => reduceConfirm(current, 'arm'))} className="text-sm font-medium text-red-600 hover:underline">
                         Delete this selling group
                       </button>
                     ) : (
@@ -495,10 +491,10 @@ export default function GroupDetailPage() {
                           agreement, frees any stock it was holding, and unlinks its users. This can&apos;t be undone.
                         </p>
                         <div className="mt-3 flex gap-2">
-                          <button type="button" onClick={deleteGroup} disabled={deleting} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
-                            {deleting ? 'Deleting…' : 'Yes, delete group'}
+                          <button type="button" onClick={deleteGroup} disabled={deleteFlow === 'submitting'} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+                            {deleteFlow === 'submitting' ? 'Deleting…' : 'Yes, delete group'}
                           </button>
-                          <button type="button" onClick={() => setConfirmDelete(false)} className="rounded border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600">
+                          <button type="button" onClick={() => setDeleteFlow((current) => reduceConfirm(current, 'cancel'))} disabled={deleteFlow === 'submitting'} className="rounded border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 disabled:opacity-50">
                             Cancel
                           </button>
                         </div>

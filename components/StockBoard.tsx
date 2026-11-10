@@ -7,6 +7,13 @@ import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
 import Countdown from '@/components/Countdown'
+import {
+  STOCK_COLUMNS,
+  describeProperty,
+  isStockBoardStatus,
+  propertyStatusLabel,
+  resolveStockMove,
+} from '@/lib/state'
 
 export type Property = {
   id: string
@@ -34,24 +41,6 @@ export const LOCATIONS = ['NSW', 'VIC', 'QLD', 'WA', 'SA', 'TAS', 'ACT', 'NT'] a
 // Sub-regions shown once a state is chosen. Add other states' regions here over time.
 export const REGIONS: Record<string, string[]> = {
   QLD: ['Brisbane', 'Gold Coast', 'Sunshine Coast', 'Darling Downs', 'Wide Bay', 'Fraser Coast', 'North Queensland'],
-}
-
-const COLUMNS = [
-  { key: 'available', label: 'Available', dot: 'bg-emerald-500', head: 'text-emerald-700' },
-  { key: 'hold', label: 'Reserved', dot: 'bg-amber-500', head: 'text-amber-700' },
-  { key: 'reserved', label: 'Expression of Interest', dot: 'bg-orange-500', head: 'text-orange-700' },
-  { key: 'under_contract', label: 'Under Contract', dot: 'bg-blue-500', head: 'text-blue-700' },
-  { key: 'finance_approved', label: 'Finance Approved', dot: 'bg-teal-500', head: 'text-teal-700' },
-  { key: 'sold', label: 'Sold', dot: 'bg-slate-500', head: 'text-slate-700' },
-] as const
-
-const LABELS: Record<string, string> = {
-  available: 'Available',
-  hold: 'Reserved',
-  reserved: 'Expression of Interest',
-  under_contract: 'Under Contract',
-  finance_approved: 'Finance Approved',
-  sold: 'Sold',
 }
 
 const fmtPrice = (p: number | null) =>
@@ -208,66 +197,81 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     const g: Record<string, Property[]> = {
       available: [], hold: [], reserved: [], under_contract: [], finance_approved: [], sold: [],
     }
-    for (const p of visible) (g[p.status] ?? (g[p.status] = [])).push(p)
+    for (const p of visible) {
+      if (!isStockBoardStatus(p.status)) continue
+      g[p.status].push(p)
+    }
     return g
   }, [visible])
+
+  const parked = useMemo(
+    () => visible.filter((p) => !isStockBoardStatus(p.status)),
+    [visible],
+  )
 
   const filtersOn = !!(q || projectFilter || typeFilter || locationFilter || regionFilter || priceFilter)
 
   const applyTransition = async (prop: Property, to: string) => {
-    const from = prop.status
-    if (from === to) return { ok: true }
+    const move = resolveStockMove(prop.status, to)
+    if (move.type === 'noop') return { ok: true as const }
+    if (move.type === 'unsupported') return { ok: false as const, msg: 'Unsupported move' }
 
     // Move back to Available — clears the hold and frees the lot for everyone.
-    if (to === 'available') {
+    if (move.type === 'release') {
       const { error } = await supabase.rpc('set_property_status', {
         p_property_id: prop.id,
         p_status: 'available',
       })
-      return error ? { ok: false, msg: error.message } : { ok: true }
+      return error ? { ok: false as const, msg: error.message } : { ok: true as const }
     }
 
-    // Mark Sold
-    if (to === 'sold') {
+    // Mark Sold. mark_sold only updates available/hold/reserved rows, so other
+    // statuses get an explicit status write afterwards.
+    if (move.type === 'mark_sold') {
       const { error } = await supabase.rpc('mark_sold', { p_property_id: prop.id })
-      return error ? { ok: false, msg: error.message } : { ok: true }
+      if (error) return { ok: false as const, msg: error.message }
+      if (move.alsoSetSold) {
+        const follow = await supabase.rpc('set_property_status', {
+          p_property_id: prop.id,
+          p_status: 'sold',
+        })
+        if (follow.error) return { ok: false as const, msg: follow.error.message }
+      }
+      return { ok: true as const }
     }
 
     // Place a HOLD — 72h auto (or pending HQ approval), via request flow.
-    if (to === 'hold') {
-      if (from === 'available') {
-        const { data, error } = await supabase.rpc('request_hold', { p_property_id: prop.id })
-        if (error) return { ok: false, msg: error.message }
-        return { ok: true, pending: data === 'pending' }
-      }
+    if (move.type === 'request_hold') {
+      const { data, error } = await supabase.rpc('request_hold', { p_property_id: prop.id })
+      if (error) return { ok: false as const, msg: error.message }
+      return { ok: true as const, pending: data === 'pending' }
+    }
+
+    if (move.type === 'set_hold') {
       const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'hold' })
-      return error ? { ok: false, msg: error.message } : { ok: true }
+      return error ? { ok: false as const, msg: error.message } : { ok: true as const }
     }
 
     // Request a RESERVATION — needs HQ approval for groups (instant for HQ).
-    if (to === 'reserved') {
+    if (move.type === 'request_reservation') {
       const { data, error } = await supabase.rpc('request_reservation', { p_property_id: prop.id })
-      if (error) return { ok: false, msg: error.message }
-      return { ok: true, pending: data === 'pending', kind: 'reservation' as const }
+      if (error) return { ok: false as const, msg: error.message }
+      return { ok: true as const, pending: data === 'pending', kind: 'reservation' as const }
     }
 
     // Under contract
-    if (to === 'under_contract') {
-      if (from === 'available') {
+    if (move.type === 'under_contract') {
+      if (move.claimFirst) {
         const { error } = await supabase.rpc('reserve_property', { p_property_id: prop.id, p_res_type: 'reservation' })
-        if (error) return { ok: false, msg: error.message }
+        if (error) return { ok: false as const, msg: error.message }
       }
       const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'under_contract' })
-      return error ? { ok: false, msg: error.message } : { ok: true }
+      return error ? { ok: false as const, msg: error.message } : { ok: true as const }
     }
 
     // Finance approved
-    if (to === 'finance_approved') {
-      const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'finance_approved' })
-      return error ? { ok: false, msg: error.message } : { ok: true }
-    }
-
-    return { ok: false, msg: 'Unsupported move' }
+    const { error } = await supabase.rpc('set_property_status', { p_property_id: prop.id, p_status: 'finance_approved' })
+    return error ? { ok: false as const, msg: error.message } : { ok: true as const }
   }
 
   const onDragEnd = async (result: DropResult) => {
@@ -278,14 +282,19 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     const prop = properties.find((p) => p.id === draggableId)
     if (!prop) return
     const to = destination.droppableId
+    const from = prop.status
 
     setProperties((prev) =>
       prev.map((p) => (p.id === draggableId ? { ...p, status: to } : p))
     )
 
     const res = await applyTransition(prop, to)
-    if (!res.ok) toast.error(res.msg || 'Could not move that lot')
-    else if (res.pending)
+    if (!res.ok) {
+      setProperties((prev) =>
+        prev.map((p) => (p.id === draggableId ? { ...p, status: from } : p))
+      )
+      toast.error(res.msg || 'Could not move that lot')
+    } else if ('pending' in res && res.pending)
       toast.success(
         'kind' in res && res.kind === 'reservation'
           ? 'Reservation request sent to Moneta HQ for approval'
@@ -293,7 +302,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
       )
     else
       toast.success(
-        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : to === 'hold' ? 'Held for 72 hours' : `Moved to ${LABELS[to] ?? to}`
+        to === 'sold' ? 'Marked sold' : to === 'available' ? 'Released' : to === 'hold' ? 'Held for 72 hours' : `Moved to ${propertyStatusLabel(to)}`
       )
     reload()
   }
@@ -381,7 +390,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
     </div>
     <DragDropContext onDragEnd={onDragEnd}>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        {COLUMNS.map((col) => {
+        {STOCK_COLUMNS.map((col) => {
           const items = grouped[col.key] ?? []
           return (
             <Droppable droppableId={col.key} key={col.key}>
@@ -406,6 +415,7 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                   <div className="flex max-h-[62vh] min-h-[120px] flex-col gap-3 overflow-y-auto pr-1">
                     {items.map((p, index) => {
                       const heldByYou = p.held_by_org && p.held_by_org === orgId
+                      const lifecycle = describeProperty(p.status, p.hold_expires_at)
                       return (
                         <Draggable draggableId={p.id} index={index} key={p.id} isDragDisabled={readOnly}>
                           {(dp, ds) => (
@@ -459,10 +469,10 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
                                   </p>
                                 ) : null
                               )}
-                              {p.status === 'hold' && (
-                                p.hold_expires_at ? (
+                              {lifecycle.status === 'hold' && (
+                                lifecycle.approval === 'active' ? (
                                   <p className="mt-1 text-[11px] font-medium text-amber-600">
-                                    ⏳ <Countdown expires={p.hold_expires_at} />
+                                    ⏳ <Countdown expires={lifecycle.expiresAt} />
                                   </p>
                                 ) : (
                                   <p className="mt-1 text-[11px] font-medium text-purple-600">Pending HQ approval</p>
@@ -503,6 +513,26 @@ export default function StockBoard({ properties, setProperties, orgId, reload, i
         })}
       </div>
     </DragDropContext>
+
+    {parked.length > 0 && (
+      <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-sm font-medium text-slate-700">
+          {parked.length === 1 ? '1 lot is' : `${parked.length} lots are`} off the board
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Withdrawn and unrecognised statuses have no pipeline column, so they used to disappear.
+        </p>
+        <ul className="mt-2 space-y-1">
+          {parked.map((p) => (
+            <li key={p.id}>
+              <Link href={`/properties/${p.id}`} className="text-sm text-slate-700 hover:text-black hover:underline">
+                Lot {p.lot_number ?? '—'} · {propertyStatusLabel(p.status)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )}
 
     {editing && (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !savingEdit && setEditing(null)}>

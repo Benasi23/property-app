@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { activityAgeDays, freshnessFromDays } from "@/lib/state";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,29 +23,16 @@ export async function GET() {
   const now = Date.now();
 
   const enriched = safeLeads.map((lead) => {
-    // fallback logic:
-    const lastDate =
-      lead.updated_at ||
-      lead.pack_sent_date ||
-      lead.created_at;
-
-    const last = lastDate ? new Date(lastDate).getTime() : null;
-
-    const daysSince = last
-      ? Math.floor((now - last) / (1000 * 60 * 60 * 24))
-      : null;
-
-    let status = "fresh";
-
-    if (daysSince === null) status = "unknown";
-    else if (daysSince >= 15) status = "critical";
-    else if (daysSince >= 8) status = "stale";
-    else if (daysSince >= 4) status = "warm";
+    const daysSince = activityAgeDays(
+      [lead.updated_at, lead.pack_sent_date, lead.created_at],
+      now,
+      null,
+    );
 
     return {
       ...lead,
       daysSince,
-      staleStatus: status,
+      staleStatus: freshnessFromDays(daysSince),
     };
   });
 

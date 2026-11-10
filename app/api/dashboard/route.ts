@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { countDashboardBuckets } from "@/lib/state";
 
 export async function GET() {
   try {
@@ -18,11 +19,12 @@ export async function GET() {
 
     const totalLeads = safe.length;
 
-    const enquiry = safe.filter((l) => l.status === "enquiry").length;
-    const qualified = safe.filter((l) => l.status === "qualified").length;
-    const packSent = safe.filter((l) => l.status === "pack_sent").length;
-    const contract = safe.filter((l) => l.status === "contract").length;
-    const settled = safe.filter((l) => l.status === "settled").length;
+    const buckets = countDashboardBuckets(safe);
+    const enquiry = buckets.enquiry;
+    const qualified = buckets.qualified;
+    const packSent = buckets.pack_sent;
+    const contract = buckets.contract;
+    const settled = buckets.settled;
 
     const conversionRate =
       totalLeads > 0 ? (settled / totalLeads) * 100 : 0;

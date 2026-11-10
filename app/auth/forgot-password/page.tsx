@@ -4,21 +4,24 @@ import { useState } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { reduceMutation, type MutationPhase } from '@/lib/state'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [reset, setReset] = useState<MutationPhase>({ phase: 'idle' })
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) return
-    setBusy(true)
+    setReset((current) => reduceMutation(current, { type: 'start' }))
     const redirectTo = `${window.location.origin}/auth/set-password`
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), { redirectTo })
-    setBusy(false)
-    if (error) return toast.error(error.message)
-    setSent(true)
+    if (error) {
+      setReset((current) => reduceMutation(current, { type: 'fail', message: error.message }))
+      toast.error(error.message)
+      return
+    }
+    setReset((current) => reduceMutation(current, { type: 'succeed' }))
   }
 
   return (
@@ -31,7 +34,7 @@ export default function ForgotPasswordPage() {
           <p className="text-sm text-slate-500">We&apos;ll email you a link to set a new password.</p>
         </div>
 
-        {sent ? (
+        {reset.phase === 'success' ? (
           <p className="rounded bg-emerald-50 p-3 text-center text-sm text-emerald-700">
             If an account exists for that email, a reset link is on its way. Check your inbox (and spam).
           </p>
@@ -46,8 +49,8 @@ export default function ForgotPasswordPage() {
               placeholder="you@yourgroup.com"
               className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-slate-900 placeholder-slate-400 outline-none focus:border-[#C79D6F] focus:ring-2 focus:ring-[#C79D6F]/30"
             />
-            <button type="submit" disabled={busy} className="w-full rounded-lg bg-slate-900 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-              {busy ? 'Sending…' : 'Send reset link'}
+            <button type="submit" disabled={reset.phase === 'pending'} className="w-full rounded-lg bg-slate-900 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+              {reset.phase === 'pending' ? 'Sending…' : 'Send reset link'}
             </button>
           </form>
         )}
