@@ -92,11 +92,25 @@ export const RELEASE_ON_GROUP_DELETE = [
 ] as const satisfies readonly PropertyStatus[];
 
 /**
- * `mark_sold` in the repo schema only updates rows currently in these
- * statuses. Other statuses need a follow-up `set_property_status('sold')`
- * or the toast says "sold" while the lot stays put.
+ * Statuses the original `mark_sold` (supabase/schema.sql) actually updates.
+ * The stock board still follows up with `set_property_status('sold')` for
+ * every other status, so a database that has not run
+ * supabase/canonical_lot_status.sql keeps moving those lots to sold.
  */
 export const MARK_SOLD_DIRECT = ["available", "hold", "reserved"] as const satisfies readonly PropertyStatus[];
+
+/**
+ * Statuses `mark_sold` updates once supabase/canonical_lot_status.sql has
+ * been applied. Withdrawn is intentionally absent: the board releases that
+ * case through `set_property_status('sold')`.
+ */
+export const MARK_SOLD_STATUSES = [
+  "available",
+  "hold",
+  "reserved",
+  "under_contract",
+  "finance_approved",
+] as const satisfies readonly PropertyStatus[];
 
 export const propertyStatusMachine = defineMachine({
   id: "property-status",

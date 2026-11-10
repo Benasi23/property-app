@@ -42,7 +42,7 @@ The board labels differ from the column names: `hold` is shown as Reserved, `res
 | same column | same | no-op |
 | `available` | any other | `set_property_status(available)` |
 | `sold` | `available`, `hold`, `reserved` | `mark_sold` |
-| `sold` | any other known status | `mark_sold`, then `set_property_status(sold)` |
+| `sold` | `under_contract`, `finance_approved`, anything else | `mark_sold`, then `set_property_status(sold)` |
 | `hold` | `available` | `request_hold` |
 | `hold` | any other | `set_property_status(hold)` |
 | `reserved` | any other | `request_reservation` |
@@ -164,13 +164,19 @@ Deleting a selling group uses confirm: armed, then submitting. Cancel is disable
 
 `general` needs no id. `project` needs a project. `property` needs a property. An id for a destination you did not pick is ignored.
 
+## Database migration
+
+`supabase/canonical_lot_status.sql` is the definition to apply. The older files stay as history and still disagree with each other. Running `under_contract.sql` or `release_cooldown.sql` again after this file puts the old setter back.
+
+The migration is not applied by the app. Someone runs it in the Supabase SQL editor, after the checks in the file header.
+
+`set_property_status(uuid, text) returns void` accepts `available`, `hold`, `reserved`, `under_contract`, `finance_approved`, `sold`, and `withdrawn`. Moving a lot back to available still marks the active reservation `released` and stamps `released_at`.
+
+`mark_sold(uuid, text, text, numeric) returns uuid` now updates lots in `available`, `hold`, `reserved`, `under_contract`, or `finance_approved`. The permission check and the pending sale insert are unchanged. Withdrawn lots are still finished by the board's follow-up call to `set_property_status('sold')`, so a database that has not been migrated keeps working.
+
+Reservation names: `request_hold` and `request_reservation`, `approve_hold` and `approve_request`, `reject_hold` and `reject_request`. Each pair takes `(uuid)` and returns `text` or `void` as before. The name that is missing is created as a one-line wrapper around the name that exists, with `security definer`, `search_path = public`, the same owner, and the same `EXECUTE` grants. If both names already exist, neither body is replaced. If neither exists, `hold_*` is created from the latest body in this repo (per-lot cooldown for `request_hold`) and the UI name wraps it. In that last case `request_reservation` places a hold, because the repo never had a separate reservation body.
+
 ## Deferred
-
-These are real machines. Changing them in this pass was riskier than modelling them.
-
-**SQL status setter.** `set_property_status` is redefined by `under_contract.sql`, `finance_approved.sql`, and `release_cooldown.sql`, and those copies disagree. The finance-approved copy accepts `finance_approved`. The release-cooldown copy rejects it. `mark_sold` only updates `available`, `hold`, and `reserved`, which is why the board now follows a failed match with `set_property_status(sold)`. Recommended next step: one migration that is the only definition of `set_property_status` and `mark_sold`, allowing the edges in `resolveStockMove`, including finance approved and under contract through to sold. Do not ship that until it is applied in Supabase. The repo SQL is not what production is guaranteed to be running.
-
-**`request_reservation`, `approve_request`, `reject_request`.** The client calls these. The repo defines `request_hold`, `approve_hold`, and `reject_hold`, not the names the UI uses. Renaming the calls would break production if the database has the UI names. Recommended: add the missing functions as wrappers, or point the UI at the functions that actually exist, after checking the live database.
 
 **Do not merge `useSession`, `app/providers.tsx`, and `useAuth`.** They read two different Supabase clients. `providers.tsx` starts as `null`, which looks signed out until the first callback. Nothing in the app currently calls that hook. Folding them together can sign people out. Recommended: one provider, listener only, phase from `deriveAuthPhase`.
 
