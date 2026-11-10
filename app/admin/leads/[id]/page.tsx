@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
+import { LEAD_STAGE_OPTIONS, leadStageLabel } from '@/lib/state'
 
 export default function LeadDetailPage() {
   const { id } = useParams()
@@ -93,11 +94,12 @@ export default function LeadDetailPage() {
           value={lead.stage || 'New'}
           onChange={(e) => setLead({ ...lead, stage: e.target.value })}
         >
-          <option>New</option>
-          <option>Contacted</option>
-          <option>Qualified</option>
-          <option>Won</option>
-          <option>Lost</option>
+          {lead.stage && !LEAD_STAGE_OPTIONS.includes(lead.stage) && (
+            <option value={lead.stage}>{leadStageLabel(lead.stage)}</option>
+          )}
+          {LEAD_STAGE_OPTIONS.map((stage) => (
+            <option key={stage} value={stage}>{stage}</option>
+          ))}
         </select>
 
         <textarea

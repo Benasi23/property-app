@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { propertyStatusLabel, propertyStatusStyle } from '@/lib/state'
 
 export type CardProperty = {
   id: string
@@ -16,14 +17,6 @@ export type CardProperty = {
   status: string
 }
 
-const STATUS_STYLE: Record<string, string> = {
-  available: 'bg-emerald-100 text-emerald-700',
-  hold: 'bg-amber-100 text-amber-700',
-  reserved: 'bg-orange-100 text-orange-700',
-  under_contract: 'bg-blue-100 text-blue-700',
-  sold: 'bg-slate-200 text-slate-700',
-}
-
 const fmtPrice = (p: number | null) => (p != null ? `$${Number(p).toLocaleString()}` : 'POA')
 
 export default function PropertyCard({ p }: { p: CardProperty }) {
@@ -36,8 +29,8 @@ export default function PropertyCard({ p }: { p: CardProperty }) {
         <h3 className="text-sm font-semibold">
           {p.estate ? `${p.estate} · ` : ''}Lot {p.lot_number ?? '—'}
         </h3>
-        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[p.status] ?? 'bg-slate-100'}`}>
-          {p.status.replace('_', ' ')}
+        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${propertyStatusStyle(p.status)}`}>
+          {propertyStatusLabel(p.status)}
         </span>
       </div>
       {p.address && <p className="text-xs text-slate-400">{p.address}</p>}

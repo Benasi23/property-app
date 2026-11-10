@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { leadStatusStamps } from "@/lib/state";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,23 +13,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Build update payload
-    const updates: any = {
+    // Build update payload. Unknown statuses still persist; only the
+    // pipeline statuses stamp a milestone date.
+    const updatedAt = new Date().toISOString();
+    const updates: Record<string, string> = {
       status,
-      updated_at: new Date().toISOString(),
+      updated_at: updatedAt,
     };
-
-    // SaaS pipeline automation timestamps
-    if (status === "pack_sent") {
-      updates.pack_sent_date = new Date().toISOString();
-    }
-
-    if (status === "contract") {
-      updates.contract_signed_date = new Date().toISOString();
-    }
-
-    if (status === "settled") {
-      updates.settlement_date = new Date().toISOString();
+    for (const field of leadStatusStamps(status)) {
+      updates[field] = updatedAt;
     }
 
     // Update Supabase

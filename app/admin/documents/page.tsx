@@ -8,6 +8,7 @@ import { uploadToDocuments } from '@/lib/uploadDocument'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import Dropzone from '@/components/Dropzone'
+import { documentDestinationError } from '@/lib/state'
 
 type Doc = {
   id: string
@@ -89,8 +90,8 @@ export default function DocumentsPage() {
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim()) return
-    if (dest === 'project' && !destProject) return toast.error('Choose a project')
-    if (dest === 'property' && !destProperty) return toast.error('Choose a property')
+    const destError = documentDestinationError(dest, destProject, destProperty)
+    if (destError) return toast.error(destError)
     setSaving(true)
 
     let path: string | null = link.trim() || null

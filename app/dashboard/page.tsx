@@ -6,6 +6,14 @@ import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
+import {
+  addToGroupStockTally,
+  emptyGroupStockTally,
+  isInProgressStatus,
+  propertyStatusLabel,
+  propertyStatusStyle,
+  tallyPropertyStatuses,
+} from '@/lib/state'
 
 type Row = {
   id: string
@@ -62,36 +70,23 @@ export default function DashboardPage() {
 
   const orgName = useMemo(() => Object.fromEntries(orgs.map((o) => [o.id, o.name])), [orgs])
 
-  const stats = useMemo(() => {
-    const s = { total: rows.length, available: 0, hold: 0, reserved: 0, under_contract: 0, sold: 0, availValue: 0, soldValue: 0 }
-    for (const r of rows) {
-      if (r.status === 'available') { s.available++; s.availValue += Number(r.price || 0) }
-      else if (r.status === 'hold') s.hold++
-      else if (r.status === 'reserved') s.reserved++
-      else if (r.status === 'under_contract') s.under_contract++
-      else if (r.status === 'sold') { s.sold++; s.soldValue += Number(r.price || 0) }
-    }
-    return s
-  }, [rows])
+  const stats = useMemo(() => tallyPropertyStatuses(rows), [rows])
 
   // Per-group activity, derived from each lot's current holder + status.
   const groupActivity = useMemo(() => {
-    const m: Record<string, { hold: number; reserved: number; under_contract: number; sold: number; soldValue: number }> = {}
+    const m: Record<string, ReturnType<typeof emptyGroupStockTally>> = {}
     for (const r of rows) {
       if (!r.held_by_org) continue
-      const g = (m[r.held_by_org] ??= { hold: 0, reserved: 0, under_contract: 0, sold: 0, soldValue: 0 })
-      if (r.status === 'hold') g.hold++
-      else if (r.status === 'reserved') g.reserved++
-      else if (r.status === 'under_contract') g.under_contract++
-      else if (r.status === 'sold') { g.sold++; g.soldValue += Number(r.price || 0) }
+      const g = (m[r.held_by_org] ??= emptyGroupStockTally())
+      addToGroupStockTally(g, r.status, r.price)
     }
     return Object.entries(m)
       .map(([orgId, v]) => ({ orgId, name: orgName[orgId] ?? 'Unknown group', ...v }))
-      .sort((a, b) => (b.hold + b.reserved + b.under_contract + b.sold) - (a.hold + a.reserved + a.under_contract + a.sold))
+      .sort((a, b) => (b.hold + b.reserved + b.under_contract + b.finance_approved + b.sold) - (a.hold + a.reserved + a.under_contract + a.finance_approved + a.sold))
   }, [rows, orgName])
 
   const held = useMemo(
-    () => rows.filter((r) => r.status === 'hold' || r.status === 'reserved' || r.status === 'under_contract'),
+    () => rows.filter((r) => isInProgressStatus(r.status)),
     [rows]
   )
 
@@ -103,11 +98,6 @@ export default function DashboardPage() {
     { label: 'Under Contract', value: stats.under_contract, tint: 'text-blue-600', href: '/properties' },
     { label: 'Sold', value: stats.sold, tint: 'text-slate-500', href: '/properties' },
   ]
-
-  const statusBadge = (s: string) =>
-    s === 'hold' ? 'bg-amber-100 text-amber-700'
-    : s === 'reserved' ? 'bg-orange-100 text-orange-700'
-    : 'bg-blue-100 text-blue-700'
 
   return (
     <AppShell title="Dashboard" subtitle="Live overview of your stock and group activity.">
@@ -140,6 +130,15 @@ export default function DashboardPage() {
             ))}
           </div>
 
+          {(stats.finance_approved > 0 || stats.withdrawn > 0 || stats.unknown > 0) && (
+            <p className="text-sm text-slate-500">
+              Not in the tiles above:
+              {stats.finance_approved > 0 && ` ${stats.finance_approved} finance approved.`}
+              {stats.withdrawn > 0 && ` ${stats.withdrawn} withdrawn.`}
+              {stats.unknown > 0 && ` ${stats.unknown} with an unrecognised status.`}
+            </p>
+          )}
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
               <p className="text-sm text-slate-500">Available stock value</p>
@@ -166,6 +165,7 @@ export default function DashboardPage() {
                     <th className="px-5 py-2 font-medium">On hold</th>
                     <th className="px-5 py-2 font-medium">Reserved</th>
                     <th className="px-5 py-2 font-medium">Under contract</th>
+                    <th className="px-5 py-2 font-medium">Finance approved</th>
                     <th className="px-5 py-2 font-medium">Sold</th>
                     <th className="px-5 py-2 font-medium">Sold value</th>
                   </tr>
@@ -181,6 +181,7 @@ export default function DashboardPage() {
                       <td className="px-5 py-2.5">{g.hold}</td>
                       <td className="px-5 py-2.5">{g.reserved}</td>
                       <td className="px-5 py-2.5">{g.under_contract}</td>
+                      <td className="px-5 py-2.5">{g.finance_approved}</td>
                       <td className="px-5 py-2.5">{g.sold}</td>
                       <td className="px-5 py-2.5 text-slate-600">{money(g.soldValue)}</td>
                     </tr>
@@ -216,8 +217,8 @@ export default function DashboardPage() {
                       <td className="px-5 py-2.5">Lot {r.lot_number ?? '—'}</td>
                       <td className="px-5 py-2.5 text-slate-600">{r.held_by_org ? orgName[r.held_by_org] ?? '—' : '—'}</td>
                       <td className="px-5 py-2.5">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadge(r.status)}`}>
-                          {r.status.replace('_', ' ')}
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${propertyStatusStyle(r.status)}`}>
+                          {propertyStatusLabel(r.status)}
                         </span>
                       </td>
                       <td className="px-5 py-2.5">{r.price != null ? money(r.price) : 'POA'}</td>

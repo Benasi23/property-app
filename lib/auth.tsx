@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { deriveAuthPhase, isHqRole, type AuthPhase } from '@/lib/state'
 import type { User } from '@supabase/supabase-js'
 
 type AuthContextType = {
@@ -13,6 +14,8 @@ type AuthContextType = {
   role: string | null
   canReserve: boolean
   loading: boolean
+  /** loading | anonymous | signed_in. Prefer this over combining the booleans. */
+  phase: AuthPhase
   signOut: () => Promise<void>
 }
 
@@ -24,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
   role: null,
   canReserve: false,
   loading: true,
+  phase: 'loading',
   signOut: async () => {},
 })
 
@@ -42,52 +46,89 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .select('organisation_id, role')
       .eq('id', uid)
       .single()
-    setOrgId(profile?.organisation_id ?? null)
-    setRole(profile?.role ?? null)
-    const isHq = profile?.role === 'hq_admin'
+    const orgId = profile?.organisation_id ?? null
+    const role = profile?.role ?? null
+    const hq = isHqRole(role)
 
-    if (profile?.organisation_id) {
+    if (orgId) {
       const { data: org } = await supabase
         .from('organisations')
         .select('name, logo_url, can_reserve')
-        .eq('id', profile.organisation_id)
+        .eq('id', orgId)
         .single()
-      setOrgName(org?.name ?? null)
-      setOrgLogo(org?.logo_url ?? null)
-      setCanReserve(isHq || !!org?.can_reserve)
-    } else {
-      setOrgName(null)
-      setOrgLogo(null)
-      setCanReserve(isHq)
+      return {
+        orgId,
+        role,
+        orgName: org?.name ?? null,
+        orgLogo: org?.logo_url ?? null,
+        canReserve: hq || !!org?.can_reserve,
+      }
+    }
+    return {
+      orgId: null,
+      role,
+      orgName: null,
+      orgLogo: null,
+      canReserve: hq,
     }
   }
 
   useEffect(() => {
     let active = true
+    let generation = 0
+    // User id whose profile is currently on screen. Same-user token refreshes
+    // must not flash the app back to a loading state.
+    let appliedFor: string | null | undefined
 
-    const init = async () => {
-      const { data } = await supabase.auth.getSession()
-      const sessionUser = data.session?.user ?? null
+    const applyProfile = (profile: Awaited<ReturnType<typeof loadProfile>>) => {
+      setOrgId(profile.orgId)
+      setOrgName(profile.orgName)
+      setOrgLogo(profile.orgLogo)
+      setRole(profile.role)
+      setCanReserve(profile.canReserve)
+    }
+
+    const clearProfile = () => {
+      setOrgId(null)
+      setOrgName(null)
+      setOrgLogo(null)
+      setRole(null)
+      setCanReserve(false)
+    }
+
+    const applySession = async (sessionUser: User | null) => {
+      const gen = ++generation
       if (!active) return
+      const nextId = sessionUser?.id ?? null
       setUser(sessionUser)
-      if (sessionUser) await loadProfile(sessionUser.id)
+      if (appliedFor !== nextId) setLoading(true)
+
+      if (!sessionUser) {
+        clearProfile()
+        appliedFor = null
+        if (active && gen === generation) setLoading(false)
+        return
+      }
+
+      const profile = await loadProfile(sessionUser.id)
+      if (!active || gen !== generation) return
+      applyProfile(profile)
+      appliedFor = nextId
       setLoading(false)
     }
-    init()
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_e, session) => {
-      const sessionUser = session?.user ?? null
-      setUser(sessionUser)
-      if (sessionUser) {
-        await loadProfile(sessionUser.id)
-      } else {
-        setOrgId(null)
-        setOrgName(null)
-        setOrgLogo(null)
-        setRole(null)
-        setCanReserve(false)
-      }
-      setLoading(false)
+    // The auth listener can fire before getSession resolves. Once it has,
+    // ignore getSession so a slower read cannot overwrite the newer session.
+    let heardListener = false
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!active || heardListener) return
+      void applySession(data.session?.user ?? null)
+    })
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, session) => {
+      heardListener = true
+      void applySession(session?.user ?? null)
     })
 
     return () => {
@@ -100,8 +141,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     await supabase.auth.signOut()
   }
 
+  const phase = deriveAuthPhase(loading, !!user)
+
   return (
-    <AuthContext.Provider value={{ user, orgId, orgName, orgLogo, role, canReserve, loading, signOut }}>
+    <AuthContext.Provider value={{ user, orgId, orgName, orgLogo, role, canReserve, loading, phase, signOut }}>
       <Toaster position="top-right" />
       {children}
     </AuthContext.Provider>

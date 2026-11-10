@@ -13,6 +13,7 @@ import {
   Cell,
   Legend,
 } from "recharts";
+import { countLegacyLeadStatuses } from "@/lib/state";
 
 type Lead = {
   id: string;
@@ -50,12 +51,7 @@ export default function AnalyticsPage() {
 
   /* ---------------- STATUS FUNNEL ---------------- */
 
-  const statusData = ["new", "contacted", "assigned", "closed"].map(
-    (status) => ({
-      name: status,
-      value: leads.filter((l) => l.status === status).length,
-    })
-  );
+  const statusData = countLegacyLeadStatuses(leads);
 
   /* ---------------- AGENT PERFORMANCE ---------------- */
 

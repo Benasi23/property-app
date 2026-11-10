@@ -8,6 +8,11 @@ import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/lib/auth'
 import AppShell from '@/components/AppShell'
 import Countdown from '@/components/Countdown'
+import {
+  parseReservationType,
+  reservationActions,
+  reservationStatusStyle,
+} from '@/lib/state'
 
 type Reservation = {
   id: string
@@ -21,16 +26,6 @@ type Reservation = {
 }
 type Org = { id: string; name: string; org_type: string }
 type Prop = { id: string; lot_number: string | null; estate: string | null }
-
-const STATUS_STYLE: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-700',
-  converted: 'bg-blue-100 text-blue-700',
-  released: 'bg-slate-100 text-slate-500',
-  expired: 'bg-amber-100 text-amber-700',
-  cancelled: 'bg-slate-100 text-slate-500',
-  pending: 'bg-purple-100 text-purple-700',
-  rejected: 'bg-red-100 text-red-700',
-}
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—')
 
@@ -157,7 +152,10 @@ export default function ReservationsPage() {
                 </select>
                 <select
                   value={form.resType}
-                  onChange={(e) => setForm((f) => ({ ...f, resType: e.target.value }))}
+                  onChange={(e) => {
+                    const resType = parseReservationType(e.target.value)
+                    if (resType) setForm((f) => ({ ...f, resType }))
+                  }}
                   className="rounded border px-3 py-2 text-sm"
                 >
                   <option value="hold">Hold</option>
@@ -221,12 +219,14 @@ export default function ReservationsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {rows.map((r) => {
+                    const actions = reservationActions(r.status, isHq)
+                    return (
                     <tr key={r.id} className="border-t border-slate-50">
                       <td className="px-5 py-3">{r.properties?.estate ?? '—'}</td>
                       <td className="px-5 py-3">Lot {r.properties?.lot_number ?? '—'}</td>
                       <td className="px-5 py-3 text-slate-600">
-                        {isHq && r.status === 'active' ? (
+                        {isHq && actions.release ? (
                           <select
                             value={r.organisation_id ?? ''}
                             onChange={(e) => reassign(r.id, e.target.value)}
@@ -250,23 +250,23 @@ export default function ReservationsPage() {
                       </td>
                       <td className="px-5 py-3 capitalize">{r.res_type}</td>
                       <td className="px-5 py-3">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[r.status] ?? 'bg-slate-100'}`}>
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${reservationStatusStyle(r.status)}`}>
                           {r.status}
                         </span>
                       </td>
                       <td className="px-5 py-3">{r.client_name ?? '—'}</td>
                       <td className="px-5 py-3 text-slate-500">{fmtDate(r.created_at)}</td>
                       <td className="px-5 py-3 text-slate-500">
-                        {r.status === 'active' && r.expires_at ? (
+                        {actions.release && r.expires_at ? (
                           <Countdown expires={r.expires_at} className="text-amber-600" />
-                        ) : r.status === 'pending' ? (
+                        ) : actions.awaitingApproval ? (
                           <span className="text-purple-600">awaiting approval</span>
                         ) : (
                           fmtDate(r.expires_at)
                         )}
                       </td>
                       <td className="px-5 py-3 text-right">
-                        {r.status === 'pending' && isHq ? (
+                        {actions.review ? (
                           <div className="flex justify-end gap-1.5">
                             <button onClick={() => approveHold(r.id)} className="rounded bg-emerald-600 px-2.5 py-1 text-xs font-medium text-white">
                               Approve
@@ -275,7 +275,7 @@ export default function ReservationsPage() {
                               Reject
                             </button>
                           </div>
-                        ) : r.status === 'active' ? (
+                        ) : actions.release ? (
                           <button
                             onClick={() => release(r.id)}
                             className="rounded border border-slate-200 px-2.5 py-1 text-xs text-slate-600 hover:bg-slate-50"
@@ -285,7 +285,8 @@ export default function ReservationsPage() {
                         ) : null}
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

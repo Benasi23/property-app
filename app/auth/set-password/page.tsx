@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { supabase } from '@/lib/supabase'
+import { linkSessionPhase, reduceMutation, type MutationPhase } from '@/lib/state'
 
 export default function SetPasswordPage() {
   const router = useRouter()
@@ -11,7 +12,8 @@ export default function SetPasswordPage() {
   const [checked, setChecked] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [save, setSave] = useState<MutationPhase>({ phase: 'idle' })
+  const sessionPhase = linkSessionPhase(checked, hasSession)
 
   useEffect(() => {
     // The invite link carries a token; the Supabase client establishes a session
@@ -31,10 +33,15 @@ export default function SetPasswordPage() {
     e.preventDefault()
     if (password.length < 8) return toast.error('Use at least 8 characters')
     if (password !== confirm) return toast.error('Passwords do not match')
-    setBusy(true)
+    if (sessionPhase !== 'ready') return
+    setSave((current) => reduceMutation(current, { type: 'start' }))
     const { error } = await supabase.auth.updateUser({ password })
-    setBusy(false)
-    if (error) return toast.error(error.message)
+    if (error) {
+      setSave((current) => reduceMutation(current, { type: 'fail', message: error.message }))
+      toast.error(error.message)
+      return
+    }
+    setSave((current) => reduceMutation(current, { type: 'succeed' }))
     toast.success('Password set — welcome!')
     router.push('/properties')
   }
@@ -49,7 +56,7 @@ export default function SetPasswordPage() {
           <p className="text-sm text-slate-500">Create a password to activate your account.</p>
         </div>
 
-        {checked && !hasSession && (
+        {sessionPhase === 'missing' && (
           <p className="rounded bg-amber-50 p-2 text-center text-xs text-amber-700">
             This link may have expired. Ask Moneta Group to resend your invite.
           </p>
@@ -73,8 +80,8 @@ export default function SetPasswordPage() {
           placeholder="Confirm password"
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-[15px] text-slate-900 placeholder-slate-400 outline-none focus:border-[#C79D6F] focus:ring-2 focus:ring-[#C79D6F]/30"
         />
-        <button type="submit" disabled={busy} className="w-full rounded-lg bg-slate-900 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
-          {busy ? 'Saving…' : 'Set password & continue'}
+        <button type="submit" disabled={save.phase === 'pending' || sessionPhase !== 'ready'} className="w-full rounded-lg bg-slate-900 py-2.5 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-50">
+          {save.phase === 'pending' ? 'Saving…' : 'Set password & continue'}
         </button>
       </form>
     </div>
